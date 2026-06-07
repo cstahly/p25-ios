@@ -18,7 +18,7 @@ struct MapTabView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack {
             Map(coordinateRegion: $region, annotationItems: visibleIncidents) { incident in
                 MapAnnotation(coordinate: incident.coordinate!) {
                     IncidentMapPin(incident: incident, isSelected: selectedIncident?.id == incident.id)
@@ -27,26 +27,29 @@ struct MapTabView: View {
             }
             .ignoresSafeArea(edges: .top)
 
-            if let inc = selectedIncident {
-                IncidentCallout(incident: inc) { selectedIncident = nil }
-                    .padding()
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
+            VStack {
+                HStack(spacing: 0) {
+                    ForEach(["all", "active", "watch", "clear"], id: \.self) { f in
+                        Button(f.capitalized) { statusFilter = f }
+                            .font(.caption.weight(statusFilter == f ? .bold : .regular))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(statusFilter == f ? Color.accentColor : Color(.systemBackground))
+                            .foregroundColor(statusFilter == f ? .white : .primary)
+                    }
+                }
+                .clipShape(Capsule())
+                .shadow(radius: 4)
+                .padding(.top, 8)
 
-            HStack(spacing: 0) {
-                ForEach(["all", "active", "watch", "clear"], id: \.self) { f in
-                    Button(f.capitalized) { statusFilter = f }
-                        .font(.caption.weight(statusFilter == f ? .bold : .regular))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(statusFilter == f ? Color.accentColor : Color(.systemBackground))
-                        .foregroundColor(statusFilter == f ? .white : .primary)
+                Spacer()
+
+                if let inc = selectedIncident {
+                    IncidentCallout(incident: inc) { selectedIncident = nil }
+                        .padding()
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .clipShape(Capsule())
-            .shadow(radius: 4)
-            .padding(.bottom, selectedIncident == nil ? 12 : 120)
-            .animation(.default, value: selectedIncident)
         }
     }
 }
