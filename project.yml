@@ -27,6 +27,7 @@ targets:
         INFOPLIST_FILE: P25Monitor/Info.plist
         CODE_SIGN_ENTITLEMENTS: P25Monitor/P25Monitor.entitlements
         IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     info:
       path: P25Monitor/Info.plist
       properties:
