@@ -18,7 +18,6 @@ class CarPlayCoordinator: NSObject {
 
     @MainActor
     func setup() {
-        // Map view fills the CarPlay window
         let mv = MKMapView(frame: window.bounds)
         mv.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         mv.setRegion(MKCoordinateRegion(
@@ -29,31 +28,30 @@ class CarPlayCoordinator: NSObject {
         window.addSubview(mv)
         mapView = mv
 
-        // Map template (provides CarPlay toolbar chrome)
+        let lt = CPListTemplate(title: "Incidents", sections: [])
+        listTemplate = lt
+
         let mt = CPMapTemplate()
         mt.mapDelegate = self
+        mt.leadingNavigationBarButtons = [
+            CPBarButton(title: "Incidents") { [weak self] _ in
+                guard let self, let lt = self.listTemplate else { return }
+                self.interfaceController.pushTemplate(lt, animated: true) { _, _ in }
+            }
+        ]
         mt.trailingNavigationBarButtons = [
-            CPBarButton(title: "Refresh") { [weak self] _ in
+            CPBarButton(title: "Refresh") { _ in
                 Task { await P25Store.shared.refresh() }
-                self?.updateMap(incidents: P25Store.shared.incidents)
             }
         ]
         mapTemplate = mt
 
-        // Incidents list template
-        let lt = CPListTemplate(title: "Incidents", sections: [])
-        lt.tabTitle = "Incidents"
-        lt.tabImage = UIImage(systemName: "list.bullet.clipboard")
-        listTemplate = lt
+        interfaceController.setRootTemplate(mt, animated: false) { success, error in
+            if let error {
+                print("[CarPlay] setRootTemplate failed: \(error)")
+            }
+        }
 
-        mt.tabTitle = "Map"
-        mt.tabImage = UIImage(systemName: "map.fill")
-
-        // Tab bar combines both
-        let tabs = CPTabBarTemplate(templates: [mt, lt])
-        interfaceController.setRootTemplate(tabs, animated: false) { _, _ in }
-
-        // Observe store
         Task { @MainActor in
             P25Store.shared.$incidents
                 .receive(on: DispatchQueue.main)
@@ -67,8 +65,9 @@ class CarPlayCoordinator: NSObject {
                 .compactMap { $0.first }
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] tx in
-                    self?.mapTemplate?.leadingNavigationBarButtons = [
-                        CPBarButton(title: tx.talkgroup.flatMap { String($0.prefix(20)) } ?? "")
+                    let label = tx.talkgroup.flatMap { String($0.prefix(20)) } ?? ""
+                    self?.mapTemplate?.trailingNavigationBarButtons = [
+                        CPBarButton(title: label.isEmpty ? "Refresh" : label)
                     ]
                 }
                 .store(in: &cancellables)
@@ -95,11 +94,10 @@ class CarPlayCoordinator: NSObject {
     @MainActor
     private func updateList(incidents: [Incident]) {
         let items: [CPListItem] = incidents.prefix(30).map { inc in
-            let item = CPListItem(
+            CPListItem(
                 text: "\(inc.statusEmoji) \(inc.title)",
-                detailText: "\(inc.agency)  \(inc.location.isEmpty ? "" : "· \(inc.location)")  \(inc.age)"
+                detailText: "\(inc.agency)\(inc.location.isEmpty ? "" : " · \(inc.location)") · \(inc.age)"
             )
-            return item
         }
         listTemplate?.updateSections([CPListSection(items: items)])
     }
