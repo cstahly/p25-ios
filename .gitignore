@@ -1,6 +1,11 @@
 P25Monitor/Network/Secrets.swift
 Build/
+DerivedData/
 *.xcuserstate
 xcuserdata/
-DerivedData/
-Build/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcworkspace/xcuserdata/
+.DS_Store
+*.o
+*.d
