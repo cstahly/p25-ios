@@ -103,6 +103,11 @@ struct AudioControlView: View {
 
 struct TXEventRow: View {
     let event: TXEvent
+    @EnvironmentObject var audio: P25AudioPlayer
+
+    var isThisClipPlaying: Bool {
+        audio.isPlayingClip && audio.currentClipFile == event.wavFile
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -110,6 +115,17 @@ struct TXEventRow: View {
                 Text(event.talkgroup ?? "Unknown")
                     .font(.caption.weight(.semibold))
                 Spacer()
+                if let wav = event.wavFile {
+                    Button {
+                        if isThisClipPlaying { audio.stopClip() }
+                        else { Task { await audio.playClip(wav) } }
+                    } label: {
+                        Image(systemName: isThisClipPlaying ? "stop.circle.fill" : "play.circle")
+                            .font(.system(size: 18))
+                            .foregroundColor(.accentColor)
+                    }
+                    .buttonStyle(.plain)
+                }
                 Text(event.time ?? "")
                     .font(.caption2)
                     .foregroundColor(.secondary)

@@ -9,6 +9,9 @@ class P25AudioPlayer: ObservableObject {
     @Published var currentTalkgroup: String = "P25 Monitor"
 
     private var player: AVPlayer?
+    private var clipPlayer: AVPlayer?
+    @Published var isPlayingClip = false
+    @Published var currentClipFile: String?
 
     private init() {
         setupSession()
@@ -49,6 +52,31 @@ class P25AudioPlayer: ObservableObject {
 
     func toggle() {
         isPlaying ? stop() : play()
+    }
+
+    func playClip(_ filename: String) async {
+        stopClip()
+        guard let token = try? await P25Client.shared.fetchAudioToken() else { return }
+        let url = P25Client.shared.clipURL(filename: filename, token: token)
+        let item = AVPlayerItem(url: url)
+        let player = AVPlayer(playerItem: item)
+        clipPlayer = player
+        currentClipFile = filename
+        isPlayingClip = true
+        NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime,
+                                               object: item, queue: .main) { [weak self] _ in
+            self?.clipPlayer = nil
+            self?.isPlayingClip = false
+            self?.currentClipFile = nil
+        }
+        player.play()
+    }
+
+    func stopClip() {
+        clipPlayer?.pause()
+        clipPlayer = nil
+        isPlayingClip = false
+        currentClipFile = nil
     }
 
     func updateNowPlaying(talkgroup: String? = nil) {

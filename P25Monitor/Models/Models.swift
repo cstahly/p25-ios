@@ -100,9 +100,11 @@ struct TXEvent: Identifiable, Codable {
     let agency: String?
     let trunk: String?
     let text: String?
+    let wavFile: String?
 
     enum CodingKeys: String, CodingKey {
         case type, time, talkgroup, agency, trunk, text
+        case wavFile = "wav_file"
     }
 }
 

@@ -53,6 +53,18 @@ class P25Client {
 
     func audioURL() -> URL { URL(string: "\(baseURL)/api/audio")! }
 
+    func fetchAudioToken() async throws -> String {
+        let (data, _) = try await URLSession.shared.data(for: req("/api/audio/token"))
+        struct TokenResp: Decodable { let token: String }
+        return try JSONDecoder().decode(TokenResp.self, from: data).token
+    }
+
+    func clipURL(filename: String, token: String) -> URL {
+        let enc = filename.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? filename
+        let tok = token.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? token
+        return URL(string: "\(baseURL)/api/audio/clip/\(enc)?t=\(tok)")!
+    }
+
     // MARK: - SSE stream
 
     func streamEvents() -> AsyncThrowingStream<TXEvent, Error> {
