@@ -1,0 +1,45 @@
+name: P25Monitor
+options:
+  bundleIdPrefix: com.cstahly
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+  defaultConfig: Debug
+
+configs:
+  Debug: debug
+  Release: release
+
+targets:
+  P25Monitor:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: P25Monitor
+    entitlements:
+      path: P25Monitor/P25Monitor.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cstahly.P25Monitor
+        SWIFT_VERSION: "5.9"
+        DEVELOPMENT_TEAM: ""          # fill in your Team ID
+        INFOPLIST_FILE: P25Monitor/Info.plist
+        CODE_SIGN_ENTITLEMENTS: P25Monitor/P25Monitor.entitlements
+        IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    info:
+      path: P25Monitor/Info.plist
+      properties:
+        UILaunchScreen: {}
+        NSLocationWhenInUseUsageDescription: "Shows your position on the incident map"
+        UIBackgroundModes:
+          - audio
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+          UISceneConfigurations:
+            UIWindowSceneSessionRoleApplication:
+              - UISceneConfigurationName: Default
+                UISceneDelegateClassName: ""
+            CPTemplateApplicationSceneSessionRoleApplication:
+              - UISceneConfigurationName: CarPlay
+                UISceneDelegateClassName: $(PRODUCT_MODULE_NAME).CarPlaySceneDelegate

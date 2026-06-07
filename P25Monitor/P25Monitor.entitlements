@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Apply for these at developer.apple.com/carplay -->
+    <!-- Navigation entitlement: needed for CPMapTemplate + CPTabBarTemplate -->
+    <key>com.apple.developer.carplay-maps</key>
+    <true/>
+    <!-- Audio entitlement: needed for CPNowPlayingTemplate -->
+    <key>com.apple.developer.carplay-audio</key>
+    <true/>
+</dict>
+</plist>
