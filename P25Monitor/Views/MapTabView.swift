@@ -97,6 +97,11 @@ struct IncidentCallout: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+                if !incident.firstSeenDisplay.isEmpty {
+                    Label("First: \(incident.firstSeenDisplay)", systemImage: "clock")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
                 Text(incident.status)
                     .font(.caption)
                     .padding(.horizontal, 8)

@@ -66,9 +66,16 @@ struct IncidentRow: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 2) {
-                Text(incident.age)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
+                if !incident.firstSeenDisplay.isEmpty {
+                    Text("↑ \(incident.firstSeenDisplay)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                if !incident.lastSeenDisplay.isEmpty {
+                    Text("↓ \(incident.lastSeenDisplay)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
                 Text(incident.statusKind.capitalized)
                     .font(.caption2)
                     .padding(.horizontal, 6)

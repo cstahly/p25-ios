@@ -52,6 +52,38 @@ struct Incident: Identifiable, Codable {
         return lastSeen
     }
 
+    var firstSeenDisplay: String {
+        guard let firstSeen else { return "" }
+        return _timeDisplay(from: firstSeen)
+    }
+
+    var lastSeenDisplay: String {
+        guard let lastSeen else { return "" }
+        return _timeDisplay(from: lastSeen)
+    }
+
+    private func _timeDisplay(from raw: String) -> String {
+        let fmts = ["yyyy-MM-dd HH:mm:ss", "HH:mm:ss"]
+        let df = DateFormatter()
+        let out = DateFormatter()
+        out.dateFormat = "h:mm a"
+        for fmt in fmts {
+            df.dateFormat = fmt
+            if var date = df.date(from: raw) {
+                if fmt == "HH:mm:ss" {
+                    let cal = Calendar.current
+                    let now = Date()
+                    date = cal.date(bySettingHour: cal.component(.hour, from: date),
+                                   minute: cal.component(.minute, from: date),
+                                   second: cal.component(.second, from: date),
+                                   of: now) ?? date
+                }
+                return out.string(from: date)
+            }
+        }
+        return raw
+    }
+
     enum CodingKeys: String, CodingKey {
         case id, number, title, agency, status, location, lat, lng
         case statusKind = "status_kind"
