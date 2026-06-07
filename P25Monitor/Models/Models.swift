@@ -1,7 +1,7 @@
 import Foundation
 import CoreLocation
 
-struct Incident: Identifiable, Codable {
+struct Incident: Identifiable, Codable, Equatable {
     let id: String
     let number: Int
     let title: String

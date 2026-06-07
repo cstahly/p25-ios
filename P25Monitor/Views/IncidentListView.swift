@@ -12,7 +12,15 @@ struct IncidentListView: View {
         NavigationView {
             Group {
                 if filtered.isEmpty {
-                    ContentUnavailableView("No Incidents", systemImage: "antenna.radiowaves.left.and.right.slash")
+                    VStack(spacing: 12) {
+                        Image(systemName: "antenna.radiowaves.left.and.right.slash")
+                            .font(.system(size: 48))
+                            .foregroundColor(.secondary)
+                        Text("No Incidents")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     List(filtered) { incident in
                         IncidentRow(incident: incident)

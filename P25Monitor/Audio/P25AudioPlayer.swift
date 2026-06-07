@@ -16,7 +16,7 @@ class P25AudioPlayer: ObservableObject {
     }
 
     private func setupSession() {
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.allowBluetooth, .allowBluetoothA2DP])
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.allowBluetoothA2DP])
         try? AVAudioSession.sharedInstance().setActive(true)
     }
 
