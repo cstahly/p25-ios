@@ -146,11 +146,11 @@ struct IncidentRow: View {
 
     func priorityColor(_ p: Int) -> Color {
         switch p {
-        case 1: return Color(red: 0.94, green: 0.27, blue: 0.27) // #ef4444
-        case 2: return Color(red: 0.98, green: 0.45, blue: 0.09) // #f97316
-        case 3: return Color(red: 0.92, green: 0.70, blue: 0.03) // #eab308
-        case 4: return Color(red: 0.05, green: 0.65, blue: 0.91) // #0ea5e9
-        default: return Color(red: 0.28, green: 0.33, blue: 0.41) // #475569
+        case 1: return Color(red: 0.66, green: 0.33, blue: 0.97) // #a855f7 purple
+        case 2: return Color(red: 0.94, green: 0.27, blue: 0.27) // #ef4444 red
+        case 3: return Color(red: 0.92, green: 0.70, blue: 0.03) // #eab308 yellow
+        case 4: return Color(red: 0.05, green: 0.65, blue: 0.91) // #0ea5e9 sky
+        default: return Color(red: 0.28, green: 0.33, blue: 0.41) // #475569 slate
         }
     }
 }

@@ -43,9 +43,11 @@ struct Incident: Identifiable, Codable, Equatable {
 
     var priorityColor: Color {
         switch priorityLevel {
-        case 1: return .red
-        case 2: return .orange
-        default: return .secondary
+        case 1: return Color(red: 0.66, green: 0.33, blue: 0.97)
+        case 2: return Color(red: 0.94, green: 0.27, blue: 0.27)
+        case 3: return Color(red: 0.92, green: 0.70, blue: 0.03)
+        case 4: return Color(red: 0.05, green: 0.65, blue: 0.91)
+        default: return Color(red: 0.28, green: 0.33, blue: 0.41)
         }
     }
 
