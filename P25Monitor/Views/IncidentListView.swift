@@ -75,9 +75,14 @@ struct IncidentRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Circle()
-                .fill(statusColor)
-                .frame(width: 10, height: 10)
+            ZStack {
+                Circle()
+                    .fill(priorityColor(incident.priorityLevel).opacity(0.25))
+                    .frame(width: 16, height: 16)
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 8, height: 8)
+            }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(incident.title)
@@ -136,6 +141,16 @@ struct IncidentRow: View {
         case "watch":  return .orange
         case "clear":  return .gray
         default:       return .yellow
+        }
+    }
+
+    func priorityColor(_ p: Int) -> Color {
+        switch p {
+        case 1: return .red
+        case 2: return .orange
+        case 3: return Color(red: 0.92, green: 0.70, blue: 0.03)
+        case 4: return .blue
+        default: return .gray
         }
     }
 }
