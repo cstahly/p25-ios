@@ -9,13 +9,16 @@ struct MapTabView: View {
     )
     @State private var selectedIncident: Incident?
     @State private var detailIncident: Incident?
-    @State private var priorityFilter = 0  // 0=all, 1=P1 only, 2=P1-P2, 3=P1-P3
+    @State private var mapFilter = "active"  // "all" | "active" | "critical"
 
     var visibleIncidents: [Incident] {
         store.incidents.filter {
             guard $0.coordinate != nil else { return false }
-            if priorityFilter > 0 && $0.priorityLevel > priorityFilter { return false }
-            return true
+            switch mapFilter {
+            case "active":   return $0.statusKind != "clear" && !$0.stale
+            case "critical": return $0.statusKind != "clear" && !$0.stale && $0.priorityLevel <= 2
+            default:         return true
+            }
         }
     }
 
@@ -36,20 +39,21 @@ struct MapTabView: View {
                     .padding()
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             } else {
-                HStack(spacing: 0) {
-                    ForEach([(0, "All"), (1, "P1"), (2, "P1–2"), (3, "P1–3")], id: \.0) { val, label in
-                        Button(label) { priorityFilter = val }
-                            .font(.caption.weight(priorityFilter == val ? .bold : .regular))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(priorityFilter == val ? Color.accentColor : Color(.systemBackground))
-                            .foregroundColor(priorityFilter == val ? .white : .primary)
+                HStack(spacing: 1) {
+                    ForEach([("all", "All"), ("active", "Active"), ("critical", "Critical")], id: \.0) { val, label in
+                        Button(label) { mapFilter = val }
+                            .font(.subheadline.weight(mapFilter == val ? .semibold : .regular))
+                            .frame(minWidth: 88)
+                            .padding(.vertical, 14)
+                            .background(mapFilter == val ? Color.accentColor : Color(.systemBackground))
+                            .foregroundColor(mapFilter == val ? .white : .primary)
                     }
                 }
-                .clipShape(Capsule())
-                .shadow(radius: 4)
-                .padding(.bottom, 12)
-                .animation(.default, value: priorityFilter)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .shadow(radius: 6)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 20)
+                .animation(.default, value: mapFilter)
             }
         }
         .sheet(item: $detailIncident) { inc in
