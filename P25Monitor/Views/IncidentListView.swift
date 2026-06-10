@@ -58,6 +58,15 @@ struct IncidentListView: View {
     }
 }
 
+private func statusWeight(_ kind: String) -> Int {
+    switch kind {
+    case "active": return 0
+    case "routine": return 1
+    case "clear":  return 3
+    default:       return 2
+    }
+}
+
 struct IncidentRow: View {
     let incident: Incident
 
@@ -127,15 +136,6 @@ struct IncidentRow: View {
         case "routine": return .orange
         case "clear":  return .gray
         default:       return .yellow
-        }
-    }
-
-    func statusWeight(_ kind: String) -> Int {
-        switch kind {
-        case "active": return 0
-        case "routine": return 1
-        case "clear":  return 3
-        default:       return 2
         }
     }
 
