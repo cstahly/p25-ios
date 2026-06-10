@@ -9,7 +9,7 @@ struct IncidentDetailView: View {
     var statusColor: Color {
         switch incident.statusKind {
         case "active": return .red
-        case "watch":  return .orange
+        case "routine": return .orange
         case "clear":  return .gray
         default:       return .yellow
         }

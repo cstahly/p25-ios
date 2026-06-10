@@ -78,7 +78,7 @@ class CarPlayCoordinator: NSObject {
             .sorted {
                 let p0 = $0.priority ?? 3, p1 = $1.priority ?? 3
                 if p0 != p1 { return p0 < p1 } // P1 = highest urgency
-                let rank: (String) -> Int = { k in k == "active" ? 0 : k == "watch" ? 1 : 2 }
+                let rank: (String) -> Int = { k in k == "active" ? 0 : k == "routine" ? 1 : 2 }
                 return rank($0.statusKind) < rank($1.statusKind)
             }
             .prefix(12)
@@ -108,7 +108,7 @@ class CarPlayCoordinator: NSObject {
         let color: UIColor
         switch statusKind {
         case "active": color = .systemRed
-        case "watch":  color = .systemOrange
+        case "routine": color = .systemOrange
         case "clear":  color = .systemGreen
         default:       color = .systemYellow
         }

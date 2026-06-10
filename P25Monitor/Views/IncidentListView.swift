@@ -3,22 +3,18 @@ import SwiftUI
 struct IncidentListView: View {
     @EnvironmentObject var store: P25Store
     @State private var statusFilter = "active"
-    @State private var sortByPriority = false
 
     var filtered: [Incident] {
-        var list = store.incidents.filter {
+        let list = store.incidents.filter {
             statusFilter == "all"    ? true :
             statusFilter == "open"   ? ($0.statusKind != "clear") :
             statusFilter == "high"   ? $0.priorityLevel <= 2 :
                                        $0.statusKind == statusFilter
         }
-        if sortByPriority {
-            list.sort {
-                if $0.priorityLevel != $1.priorityLevel { return $0.priorityLevel < $1.priorityLevel }
-                return ($0.lastSeen ?? "") > ($1.lastSeen ?? "")
-            }
+        return list.sorted {
+            if $0.priorityLevel != $1.priorityLevel { return $0.priorityLevel < $1.priorityLevel }
+            return statusWeight($0.statusKind) < statusWeight($1.statusKind)
         }
-        return list
     }
 
     var body: some View {
@@ -47,12 +43,6 @@ struct IncidentListView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack(spacing: 8) {
-                        Button {
-                            sortByPriority.toggle()
-                        } label: {
-                            Image(systemName: sortByPriority ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
-                                .foregroundColor(sortByPriority ? .orange : .secondary)
-                        }
                         Menu {
                             Button("Open") { statusFilter = "open" }
                             Button("Active") { statusFilter = "active" }
@@ -114,15 +104,13 @@ struct IncidentRow: View {
                         .foregroundColor(.secondary)
                 }
                 HStack(spacing: 4) {
-                    if incident.priorityLevel <= 2 {
-                        Text("P\(incident.priorityLevel)")
-                            .font(.caption2.weight(.bold))
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(incident.priorityColor.opacity(0.15))
-                            .foregroundColor(incident.priorityColor)
-                            .clipShape(Capsule())
-                    }
+                    Text("P\(incident.priorityLevel)")
+                        .font(.caption2.weight(.bold))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(incident.priorityColor.opacity(0.15))
+                        .foregroundColor(incident.priorityColor)
+                        .clipShape(Capsule())
                     Text(incident.statusKind.capitalized)
                         .font(.caption2)
                         .padding(.horizontal, 6)
@@ -138,9 +126,19 @@ struct IncidentRow: View {
     var statusColor: Color {
         switch incident.statusKind {
         case "active": return .red
-        case "watch":  return .orange
+        case "routine": return .orange
         case "clear":  return .gray
         default:       return .yellow
+        }
+    }
+
+    func statusWeight(_ kind: String) -> Int {
+        switch kind {
+        case "active": return 0
+        case "routine": return 1
+        case "routine": return 2
+        case "clear":  return 3
+        default:       return 2
         }
     }
 

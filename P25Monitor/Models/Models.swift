@@ -23,7 +23,7 @@ struct Incident: Identifiable, Codable, Equatable {
     var statusEmoji: String {
         switch statusKind {
         case "active":  return "🔴"
-        case "watch":   return "🟡"
+        case "routine": return "🟠"
         case "clear":   return "⚪"
         default:        return "🟠"
         }
