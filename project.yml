@@ -1,6 +1,6 @@
 name: P25Monitor
 options:
-  bundleIdPrefix: com.cstahly
+  bundleIdPrefix: com.sadbabyrabbit
   deploymentTarget:
     iOS: "16.0"
   createIntermediateGroups: true
@@ -21,7 +21,7 @@ targets:
       path: P25Monitor/P25Monitor.entitlements
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.cstahly.P25Monitor
+        PRODUCT_BUNDLE_IDENTIFIER: com.sadbabyrabbit.P25Monitor
         SWIFT_VERSION: "5.9"
         DEVELOPMENT_TEAM: ""          # fill in your Team ID
         INFOPLIST_FILE: P25Monitor/Info.plist
@@ -33,6 +33,11 @@ targets:
       properties:
         UILaunchScreen: {}
         NSLocationWhenInUseUsageDescription: "Shows your position on the incident map"
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         UIBackgroundModes:
           - audio
         UIApplicationSceneManifest:

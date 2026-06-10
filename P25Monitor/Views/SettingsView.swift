@@ -10,7 +10,7 @@ struct SettingsView: View {
     @EnvironmentObject var store: P25Store
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
                 if isOnboarding {
                     Section {

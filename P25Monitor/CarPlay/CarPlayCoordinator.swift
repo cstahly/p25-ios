@@ -1,49 +1,35 @@
 import CarPlay
-import MapKit
 import Combine
+import CoreLocation
+import MapKit
 import MediaPlayer
 
 class CarPlayCoordinator: NSObject {
 
     private let interfaceController: CPInterfaceController
-    private let window: CPWindow
-    private var mapView: MKMapView?
-    private var mapTemplate: CPMapTemplate?
+    private var poiTemplate: CPPointOfInterestTemplate?
     private var listTemplate: CPListTemplate?
     private var logTemplate: CPListTemplate?
-    private var tabBar: CPTabBarTemplate?
     private var cancellables = Set<AnyCancellable>()
+    private let locationManager = CLLocationManager()
 
-    // Track annotations by incident number for incremental updates
-    private var annotationMap: [Int: IncidentAnnotation] = [:]
-
-    init(interfaceController: CPInterfaceController, window: CPWindow) {
+    init(interfaceController: CPInterfaceController) {
         self.interfaceController = interfaceController
-        self.window = window
     }
 
     @MainActor
     func setup() {
-        let mv = MKMapView(frame: window.bounds)
-        mv.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        mv.setRegion(MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: 40.4167, longitude: -86.8753),
-            span: MKCoordinateSpan(latitudeDelta: 0.14, longitudeDelta: 0.14)
-        ), animated: false)
-        mv.delegate = self
-        window.addSubview(mv)
-        mapView = mv
+        locationManager.delegate = self
+        if locationManager.authorizationStatus == .notDetermined {
+            locationManager.requestWhenInUseAuthorization()
+        }
+        locationManager.startUpdatingLocation()
 
-        let mt = CPMapTemplate()
-        mt.mapDelegate = self
-        mt.trailingNavigationBarButtons = [
-            CPBarButton(title: "Refresh") { [weak self] _ in
-                Task { await P25Store.shared.refresh() }
-            }
-        ]
-        mt.tabTitle = "Map"
-        mt.tabImage = UIImage(systemName: "map.fill")
-        mapTemplate = mt
+        let poi = CPPointOfInterestTemplate(title: "Incidents", pointsOfInterest: [], selectedIndex: NSNotFound)
+        poi.pointOfInterestDelegate = self
+        poi.tabTitle = "Map"
+        poi.tabImage = UIImage(systemName: "map.fill")
+        poiTemplate = poi
 
         let lt = CPListTemplate(title: "Incidents", sections: [])
         lt.tabTitle = "Incidents"
@@ -55,15 +41,14 @@ class CarPlayCoordinator: NSObject {
         log.tabImage = UIImage(systemName: "text.bubble")
         logTemplate = log
 
-        let tabs = CPTabBarTemplate(templates: [mt, lt, log])
-        tabBar = tabs
+        let tabs = CPTabBarTemplate(templates: [poi, lt, log])
         interfaceController.setRootTemplate(tabs, animated: false) { _, _ in }
 
         Task { @MainActor in
             P25Store.shared.$incidents
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] incidents in
-                    self?.updateMap(incidents: incidents)
+                    self?.updatePOI(incidents: incidents)
                     self?.updateList(incidents: incidents)
                 }
                 .store(in: &cancellables)
@@ -72,46 +57,61 @@ class CarPlayCoordinator: NSObject {
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] txList in
                     self?.updateLog(txList: txList)
-                    self?.updateNowPlayingBar(txList: txList)
                 }
                 .store(in: &cancellables)
 
             P25AudioPlayer.shared.$isPlaying
                 .receive(on: DispatchQueue.main)
-                .sink { [weak self] _ in self?.refreshNowPlaying() }
+                .sink { _ in CarPlayCoordinator.syncNowPlaying() }
                 .store(in: &cancellables)
 
             P25Store.shared.start()
         }
     }
 
-    // MARK: - Map
+    // MARK: - POI map
 
     @MainActor
-    private func updateMap(incidents: [Incident]) {
-        guard let mapView else { return }
-
-        let incoming = Dictionary(uniqueKeysWithValues: incidents.compactMap { inc -> (Int, Incident)? in
-            guard inc.coordinate != nil else { return nil }
-            return (inc.number, inc)
-        })
-
-        // Remove stale
-        for (num, ann) in annotationMap where incoming[num] == nil {
-            mapView.removeAnnotation(ann)
-            annotationMap.removeValue(forKey: num)
-        }
-
-        // Add/update
-        for (num, inc) in incoming {
-            if let existing = annotationMap[num] {
-                existing.update(from: inc)
-            } else {
-                let ann = IncidentAnnotation(incident: inc)
-                mapView.addAnnotation(ann)
-                annotationMap[num] = ann
+    private func updatePOI(incidents: [Incident]) {
+        let prioritized = incidents
+            .filter { $0.coordinate != nil }
+            .sorted {
+                let rank: (String) -> Int = { k in k == "active" ? 0 : k == "watch" ? 1 : 2 }
+                return rank($0.statusKind) < rank($1.statusKind)
             }
+            .prefix(12)
+        let pois: [CPPointOfInterest] = prioritized.compactMap { inc in
+            guard let coord = inc.coordinate else { return nil }
+            let loc = MKMapItem(placemark: MKPlacemark(coordinate: coord))
+            loc.name = "\(inc.statusEmoji) \(inc.title)"
+
+            let poi = CPPointOfInterest(
+                location: loc,
+                title: "\(inc.statusEmoji) \(inc.title)",
+                subtitle: inc.agency,
+                summary: inc.location.isEmpty ? nil : inc.location,
+                detailTitle: "\(inc.statusEmoji) \(inc.title)",
+                detailSubtitle: "\(inc.agency) · \(inc.age)",
+                detailSummary: [inc.action, inc.details?.first]
+                    .compactMap { $0 }.filter { !$0.isEmpty }.first,
+                pinImage: pinImage(for: inc.statusKind)
+            )
+            poi.userInfo = inc
+            return poi
         }
+        poiTemplate?.setPointsOfInterest(pois, selectedIndex: NSNotFound)
+    }
+
+    private func pinImage(for statusKind: String) -> UIImage? {
+        let color: UIColor
+        switch statusKind {
+        case "active": color = .systemRed
+        case "watch":  color = .systemOrange
+        case "clear":  color = .systemGreen
+        default:       color = .systemYellow
+        }
+        let cfg = UIImage.SymbolConfiguration(paletteColors: [color])
+        return UIImage(systemName: "circle.fill", withConfiguration: cfg)
     }
 
     // MARK: - Incidents list
@@ -125,10 +125,9 @@ class CarPlayCoordinator: NSObject {
             list.prefix(30).map { inc in
                 let detail = [inc.agency,
                               inc.location.isEmpty ? nil : inc.location,
-                              inc.age.isEmpty ? nil : inc.age]
+                              inc.age.isEmpty      ? nil : inc.age]
                     .compactMap { $0 }.joined(separator: " · ")
-                let item = CPListItem(text: "\(inc.statusEmoji) \(inc.title)",
-                                     detailText: detail)
+                let item = CPListItem(text: "\(inc.statusEmoji) \(inc.title)", detailText: detail)
                 item.handler = { [weak self] _, completion in
                     self?.pushIncidentDetail(inc)
                     completion()
@@ -138,10 +137,9 @@ class CarPlayCoordinator: NSObject {
         }
 
         var sections: [CPListSection] = []
-        if !active.isEmpty  { sections.append(CPListSection(items: makeItems(active),  header: "Active", sectionIndexTitle: nil)) }
+        if !active.isEmpty  { sections.append(CPListSection(items: makeItems(active),  header: "Active",  sectionIndexTitle: nil)) }
         if !cleared.isEmpty { sections.append(CPListSection(items: makeItems(cleared), header: "Cleared", sectionIndexTitle: nil)) }
         if sections.isEmpty { sections = [CPListSection(items: [CPListItem(text: "No incidents", detailText: nil)])] }
-
         listTemplate?.updateSections(sections)
     }
 
@@ -163,7 +161,7 @@ class CarPlayCoordinator: NSObject {
         if let action = incident.action, !action.isEmpty {
             rows.append(CPInformationItem(title: "Action", detail: action))
         }
-        for detail in (incident.details ?? []).prefix(4) {
+        for detail in (incident.details ?? []).prefix(3) {
             rows.append(CPInformationItem(title: nil, detail: detail))
         }
 
@@ -185,13 +183,12 @@ class CarPlayCoordinator: NSObject {
 
     @MainActor
     private func focusMapOnIncident(_ incident: Incident) {
-        guard let coord = incident.coordinate, let mapView else { return }
-        mapView.setRegion(MKCoordinateRegion(
-            center: coord,
-            span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
-        ), animated: true)
+        guard incident.coordinate != nil else { return }
+        if let pois = poiTemplate?.pointsOfInterest,
+           let idx = pois.firstIndex(where: { ($0.userInfo as? Incident)?.number == incident.number }) {
+            poiTemplate?.setPointsOfInterest(pois, selectedIndex: idx)
+        }
         interfaceController.popToRootTemplate(animated: true) { _, _ in }
-        tabBar?.selectedTemplate = mapTemplate
     }
 
     // MARK: - Radio log
@@ -224,80 +221,45 @@ class CarPlayCoordinator: NSObject {
         logTemplate?.updateSections([CPListSection(items: items)])
     }
 
-    // MARK: - Now Playing bar
+    // MARK: - Now Playing
 
-    @MainActor
-    private func updateNowPlayingBar(txList: [TXEvent]) {
-        guard let first = txList.first else { return }
-        let tg = first.talkgroup.flatMap { String($0.prefix(24)) } ?? "P25"
-        mapTemplate?.leadingNavigationBarButtons = [
-            CPBarButton(title: "📻 \(tg)")
-        ]
-    }
-
-    @MainActor
-    private func refreshNowPlaying() {
+    @MainActor static func syncNowPlaying() {
         let audio = P25AudioPlayer.shared
-        guard audio.isPlaying else { return }
+        guard audio.isPlaying else {
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+            return
+        }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = [
-            MPMediaItemPropertyTitle:           audio.currentTalkgroup,
-            MPMediaItemPropertyArtist:          "Tippecanoe P25",
+            MPMediaItemPropertyTitle:             audio.currentTalkgroup,
+            MPMediaItemPropertyArtist:            "Tippecanoe P25",
             MPNowPlayingInfoPropertyIsLiveStream: true,
             MPNowPlayingInfoPropertyPlaybackRate: 1.0,
         ]
     }
 }
 
-// MARK: - Annotation
+// MARK: - CPPointOfInterestTemplateDelegate
 
-class IncidentAnnotation: NSObject, MKAnnotation {
-    private(set) var incident: Incident
-    dynamic var coordinate: CLLocationCoordinate2D
-    var title: String?
-    var subtitle: String?
+extension CarPlayCoordinator: CPPointOfInterestTemplateDelegate {
+    func pointOfInterestTemplate(_ pointOfInterestTemplate: CPPointOfInterestTemplate,
+                                 didChangeMapRegion region: MKCoordinateRegion) {}
 
-    init(incident: Incident) {
-        self.incident = incident
-        self.coordinate = incident.coordinate!
-        super.init()
-        update(from: incident)
-    }
-
-    func update(from inc: Incident) {
-        incident = inc
-        coordinate = inc.coordinate!
-        title    = "\(inc.statusEmoji) \(inc.title)"
-        subtitle = "\(inc.agency) · \(inc.age)"
+    func pointOfInterestTemplate(_ pointOfInterestTemplate: CPPointOfInterestTemplate,
+                                 didSelectPointOfInterest pointOfInterest: CPPointOfInterest) {
+        guard let incident = pointOfInterest.userInfo as? Incident else { return }
+        Task { @MainActor in pushIncidentDetail(incident) }
     }
 }
 
-// MARK: - MKMapViewDelegate
+// MARK: - CLLocationManagerDelegate
 
-extension CarPlayCoordinator: MKMapViewDelegate {
-    func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-        guard let ann = annotation as? IncidentAnnotation else { return nil }
-        let view = mapView.dequeueReusableAnnotationView(withIdentifier: "incident") as? MKMarkerAnnotationView
-            ?? MKMarkerAnnotationView(annotation: ann, reuseIdentifier: "incident")
-        view.annotation = ann
-        view.canShowCallout = true
-        view.markerTintColor = pinColor(for: ann.incident.statusKind)
-        view.glyphText = ann.incident.statusEmoji
-        return view
-    }
-
-    private func pinColor(for statusKind: String) -> UIColor {
-        switch statusKind {
-        case "active":  return .systemRed
-        case "watch":   return .systemOrange
-        case "clear":   return .systemGreen
-        default:        return .systemYellow
+extension CarPlayCoordinator: CLLocationManagerDelegate {
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        switch manager.authorizationStatus {
+        case .authorizedWhenInUse, .authorizedAlways:
+            manager.startUpdatingLocation()
+        default:
+            break
         }
     }
-}
-
-// MARK: - CPMapTemplateDelegate
-
-extension CarPlayCoordinator: CPMapTemplateDelegate {
-    func mapTemplateDidShowPanningInterface(_ mapTemplate: CPMapTemplate) {}
-    func mapTemplateDidDismissPanningInterface(_ mapTemplate: CPMapTemplate) {}
 }

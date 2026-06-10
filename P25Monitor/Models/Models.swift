@@ -1,7 +1,7 @@
 import Foundation
 import CoreLocation
 
-struct Incident: Identifiable, Codable {
+struct Incident: Identifiable, Codable, Equatable {
     let id: String
     let number: Int
     let title: String
@@ -84,11 +84,19 @@ struct Incident: Identifiable, Codable {
         return raw
     }
 
+    let details: [String]?
+    let action: String?
+    let firstTxId: Int?
+    let lastTxId: Int?
+
     enum CodingKeys: String, CodingKey {
         case id, number, title, agency, status, location, lat, lng
         case statusKind = "status_kind"
         case firstSeen  = "first_seen"
         case lastSeen   = "last_seen"
+        case details, action
+        case firstTxId  = "first_tx_id"
+        case lastTxId   = "last_tx_id"
     }
 }
 
@@ -101,6 +109,7 @@ struct TXEvent: Identifiable, Codable {
     let trunk: String?
     let text: String?
     let wavFile: String?
+    var dbId: Int = 0
 
     enum CodingKeys: String, CodingKey {
         case type, time, talkgroup, agency, trunk, text
@@ -111,3 +120,24 @@ struct TXEvent: Identifiable, Codable {
 struct StateResponse: Codable {
     let incidents: [Incident]
 }
+
+struct TXRow: Codable {
+    let id: Int
+    let time: String?
+    let talkgroup: String?
+    let agency: String?
+    let trunk: String?
+    let text: String?
+    let wavFile: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, time, talkgroup, agency, trunk, text
+        case wavFile = "wav_file"
+    }
+
+    func toTXEvent() -> TXEvent {
+        TXEvent(type: "tx", time: time, talkgroup: talkgroup, agency: agency,
+                trunk: trunk, text: text, wavFile: wavFile, dbId: id)
+    }
+}
+

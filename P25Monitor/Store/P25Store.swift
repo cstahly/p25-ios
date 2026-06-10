@@ -1,6 +1,10 @@
 import Foundation
 import Combine
 
+extension Notification.Name {
+    static let p25NewTX = Notification.Name("p25NewTX")
+}
+
 @MainActor
 class P25Store: ObservableObject {
     static let shared = P25Store()
@@ -19,6 +23,7 @@ class P25Store: ObservableObject {
 
     func start() {
         guard P25Client.shared.isConfigured else { return }
+        guard streamTask == nil else { return }
         Task { await refresh() }
         startStreaming()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
@@ -54,7 +59,8 @@ class P25Store: ObservableObject {
                     guard !Task.isCancelled else { return }
                     if event.type == "tx" {
                         recentTX.insert(event, at: 0)
-                        if recentTX.count > 50 { recentTX.removeLast() }
+                        if recentTX.count > 100 { recentTX.removeLast() }
+                        NotificationCenter.default.post(name: .p25NewTX, object: event)
                         // Throttle incident refreshes to once per 5 seconds
                         if Date().timeIntervalSince(lastRefresh) > 5 {
                             await refresh()

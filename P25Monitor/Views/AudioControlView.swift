@@ -5,7 +5,7 @@ struct AudioControlView: View {
     @EnvironmentObject var audio: P25AudioPlayer
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 // Play button
                 VStack(spacing: 16) {
@@ -105,9 +105,8 @@ struct TXEventRow: View {
     let event: TXEvent
     @EnvironmentObject var audio: P25AudioPlayer
 
-    var isThisClipPlaying: Bool {
-        audio.isPlayingClip && audio.currentClipFile == event.wavFile
-    }
+    var isThisClipPlaying: Bool { audio.isPlayingClip && audio.currentClipFile == event.wavFile }
+    var isThisClipLoading: Bool { audio.isLoadingClip && audio.currentClipFile == event.wavFile }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -117,14 +116,22 @@ struct TXEventRow: View {
                 Spacer()
                 if let wav = event.wavFile {
                     Button {
-                        if isThisClipPlaying { audio.stopClip() }
+                        if isThisClipPlaying || isThisClipLoading { audio.stopClip() }
                         else { Task { await audio.playClip(wav) } }
                     } label: {
-                        Image(systemName: isThisClipPlaying ? "stop.circle.fill" : "play.circle")
-                            .font(.system(size: 18))
-                            .foregroundColor(.accentColor)
+                        Group {
+                            if isThisClipLoading {
+                                ProgressView().scaleEffect(0.7)
+                            } else {
+                                Image(systemName: isThisClipPlaying ? "stop.circle.fill" : "play.circle")
+                                    .font(.system(size: 18))
+                            }
+                        }
+                        .foregroundColor(.accentColor)
+                        .frame(width: 20, height: 20)
                     }
                     .buttonStyle(.plain)
+                    .disabled(audio.isLoadingClip && !isThisClipLoading)
                 }
                 Text(event.time ?? "")
                     .font(.caption2)

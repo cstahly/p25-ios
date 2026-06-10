@@ -2,21 +2,30 @@ import SwiftUI
 
 struct IncidentListView: View {
     @EnvironmentObject var store: P25Store
-    @State private var statusFilter = "all"
+    @State private var statusFilter = "active"
 
     var filtered: [Incident] {
         store.incidents.filter { statusFilter == "all" || $0.statusKind == statusFilter }
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Group {
                 if filtered.isEmpty {
-                    ContentUnavailableView("No Incidents", systemImage: "antenna.radiowaves.left.and.right.slash")
+                    VStack(spacing: 12) {
+                        Image(systemName: "antenna.radiowaves.left.and.right.slash")
+                            .font(.system(size: 48))
+                            .foregroundColor(.secondary)
+                        Text("No Incidents")
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     List(filtered) { incident in
-                        IncidentRow(incident: incident)
-                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                        NavigationLink(destination: IncidentDetailView(incident: incident)) {
+                            IncidentRow(incident: incident)
+                        }
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     }
                     .listStyle(.plain)
                 }

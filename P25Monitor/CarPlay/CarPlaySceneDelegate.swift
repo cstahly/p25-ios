@@ -6,17 +6,15 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
 
     func templateApplicationScene(
         _ templateApplicationScene: CPTemplateApplicationScene,
-        didConnect interfaceController: CPInterfaceController,
-        to window: CPWindow
+        didConnect interfaceController: CPInterfaceController
     ) {
-        coordinator = CarPlayCoordinator(interfaceController: interfaceController, window: window)
+        coordinator = CarPlayCoordinator(interfaceController: interfaceController)
         coordinator?.setup()
     }
 
     func templateApplicationScene(
         _ templateApplicationScene: CPTemplateApplicationScene,
-        didDisconnectInterfaceController interfaceController: CPInterfaceController,
-        from window: CPWindow
+        didDisconnect interfaceController: CPInterfaceController
     ) {
         coordinator = nil
     }

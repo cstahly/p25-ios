@@ -11,6 +11,7 @@ class P25AudioPlayer: ObservableObject {
     private var player: AVPlayer?
     private var clipPlayer: AVPlayer?
     @Published var isPlayingClip = false
+    @Published var isLoadingClip = false
     @Published var currentClipFile: String?
 
     private init() {
@@ -19,7 +20,7 @@ class P25AudioPlayer: ObservableObject {
     }
 
     private func setupSession() {
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.allowBluetooth, .allowBluetoothA2DP])
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.allowBluetoothHFP, .allowBluetoothA2DP])
         try? AVAudioSession.sharedInstance().setActive(true)
     }
 
@@ -55,19 +56,26 @@ class P25AudioPlayer: ObservableObject {
     }
 
     func playClip(_ filename: String) async {
+        guard !isLoadingClip else { return }
         stopClip()
-        guard let token = try? await P25Client.shared.fetchAudioToken() else { return }
+        isLoadingClip = true
+        currentClipFile = filename
+        defer { isLoadingClip = false }
+        guard let token = try? await P25Client.shared.fetchAudioToken() else {
+            currentClipFile = nil; return
+        }
         let url = P25Client.shared.clipURL(filename: filename, token: token)
         let item = AVPlayerItem(url: url)
         let player = AVPlayer(playerItem: item)
         clipPlayer = player
-        currentClipFile = filename
         isPlayingClip = true
         NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime,
                                                object: item, queue: .main) { [weak self] _ in
-            self?.clipPlayer = nil
-            self?.isPlayingClip = false
-            self?.currentClipFile = nil
+            Task { @MainActor [weak self] in
+                self?.clipPlayer = nil
+                self?.isPlayingClip = false
+                self?.currentClipFile = nil
+            }
         }
         player.play()
     }
@@ -76,6 +84,7 @@ class P25AudioPlayer: ObservableObject {
         clipPlayer?.pause()
         clipPlayer = nil
         isPlayingClip = false
+        isLoadingClip = false
         currentClipFile = nil
     }
 

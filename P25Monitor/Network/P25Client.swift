@@ -7,19 +7,19 @@ class P25Client {
     // MARK: - Config (persisted in UserDefaults)
 
     var baseURL: String {
-        get { UserDefaults.standard.string(forKey: "serverURL") ?? "https://p25.sadbabyrabbit.com" }
+        get { UserDefaults.standard.string(forKey: "serverURL") ?? Secrets.serverURL }
         set { UserDefaults.standard.set(newValue, forKey: "serverURL") }
     }
     var username: String {
-        get { UserDefaults.standard.string(forKey: "username") ?? "" }
+        get { UserDefaults.standard.string(forKey: "username") ?? Secrets.username }
         set { UserDefaults.standard.set(newValue, forKey: "username") }
     }
     var password: String {
-        get { UserDefaults.standard.string(forKey: "password") ?? "" }
+        get { UserDefaults.standard.string(forKey: "password") ?? Secrets.password }
         set { UserDefaults.standard.set(newValue, forKey: "password") }
     }
 
-    var isConfigured: Bool { !username.isEmpty && !password.isEmpty }
+    var isConfigured: Bool { true }
 
     var authHeader: String {
         let creds = Data("\(username):\(password)".utf8).base64EncodedString()
@@ -57,6 +57,16 @@ class P25Client {
         let (data, _) = try await URLSession.shared.data(for: req("/api/audio/token"))
         struct TokenResp: Decodable { let token: String }
         return try JSONDecoder().decode(TokenResp.self, from: data).token
+    }
+
+    func fetchTransmissions(limit: Int = 50, beforeId: Int = 0, afterId: Int = 0, fromId: Int = 0, toId: Int = 0) async throws -> [TXEvent] {
+        var path = "/api/transmissions?limit=\(limit)"
+        if fromId > 0 && toId > 0 { path += "&from_id=\(fromId)&to_id=\(toId)" }
+        else if beforeId > 0      { path += "&before_id=\(beforeId)" }
+        else if afterId  > 0      { path += "&after_id=\(afterId)" }
+        let (data, _) = try await URLSession.shared.data(for: req(path))
+        let rows = try JSONDecoder().decode([TXRow].self, from: data)
+        return rows.map { $0.toTXEvent() }
     }
 
     func clipURL(filename: String, token: String) -> URL {
