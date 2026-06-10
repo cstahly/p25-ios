@@ -6,10 +6,9 @@ struct IncidentListView: View {
 
     var filtered: [Incident] {
         let list = store.incidents.filter {
-            statusFilter == "all"    ? true :
-            statusFilter == "open"   ? ($0.statusKind != "clear") :
-            statusFilter == "high"   ? $0.priorityLevel <= 2 :
-                                       $0.statusKind == statusFilter
+            statusFilter == "all"      ? true :
+            statusFilter == "critical" ? ($0.statusKind != "clear" && $0.priorityLevel <= 2) :
+                                         $0.statusKind != "clear"  // "active" default
         }
         return list.sorted {
             if $0.priorityLevel != $1.priorityLevel { return $0.priorityLevel < $1.priorityLevel }
@@ -44,12 +43,11 @@ struct IncidentListView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack(spacing: 8) {
                         Menu {
-                            Button("Open") { statusFilter = "open" }
                             Button("Active") { statusFilter = "active" }
-                            Button("High Priority (P1–P2)") { statusFilter = "high" }
+                            Button("Critical (P1–P2)") { statusFilter = "critical" }
                             Button("All") { statusFilter = "all" }
                         } label: {
-                            Label(statusFilter == "high" ? "High" : statusFilter.capitalized,
+                            Label(statusFilter == "critical" ? "Critical" : statusFilter.capitalized,
                                   systemImage: "line.3.horizontal.decrease.circle")
                         }
                     }

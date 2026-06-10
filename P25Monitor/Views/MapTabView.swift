@@ -15,8 +15,8 @@ struct MapTabView: View {
         store.incidents.filter {
             guard $0.coordinate != nil else { return false }
             switch mapFilter {
-            case "active":   return $0.statusKind != "clear" && !$0.stale
-            case "critical": return $0.statusKind != "clear" && !$0.stale && $0.priorityLevel <= 2
+            case "active":   return $0.statusKind != "clear"
+            case "critical": return $0.statusKind != "clear" && $0.priorityLevel <= 2
             default:         return true
             }
         }
