@@ -74,10 +74,10 @@ class CarPlayCoordinator: NSObject {
     @MainActor
     private func updatePOI(incidents: [Incident]) {
         let prioritized = incidents
-            .filter { $0.coordinate != nil }
+            .filter { $0.coordinate != nil && $0.statusKind != "clear" }
             .sorted {
                 let p0 = $0.priority ?? 3, p1 = $1.priority ?? 3
-                if p0 != p1 { return p0 < p1 } // P1 = highest urgency
+                if p0 != p1 { return p0 < p1 }
                 let rank: (String) -> Int = { k in k == "active" ? 0 : k == "routine" ? 1 : 2 }
                 return rank($0.statusKind) < rank($1.statusKind)
             }
@@ -96,7 +96,7 @@ class CarPlayCoordinator: NSObject {
                 detailSubtitle: "\(inc.agency) · \(inc.age)",
                 detailSummary: [inc.action, inc.details?.first]
                     .compactMap { $0 }.filter { !$0.isEmpty }.first,
-                pinImage: pinImage(for: inc.statusKind)
+                pinImage: pinImage(for: inc.priorityLevel)
             )
             poi.userInfo = inc
             return poi
@@ -104,16 +104,17 @@ class CarPlayCoordinator: NSObject {
         poiTemplate?.setPointsOfInterest(pois, selectedIndex: NSNotFound)
     }
 
-    private func pinImage(for statusKind: String) -> UIImage? {
+    private func pinImage(for priority: Int) -> UIImage? {
         let color: UIColor
-        switch statusKind {
-        case "active": color = .systemRed
-        case "routine": color = .systemOrange
-        case "clear":  color = .systemGreen
-        default:       color = .systemYellow
+        switch priority {
+        case 1: color = UIColor(red: 0.66, green: 0.33, blue: 0.97, alpha: 1)
+        case 2: color = UIColor(red: 0.94, green: 0.27, blue: 0.27, alpha: 1)
+        case 3: color = UIColor(red: 0.92, green: 0.70, blue: 0.03, alpha: 1)
+        case 4: color = UIColor(red: 0.05, green: 0.65, blue: 0.91, alpha: 1)
+        default: color = UIColor(red: 0.28, green: 0.33, blue: 0.41, alpha: 1)
         }
-        let cfg = UIImage.SymbolConfiguration(paletteColors: [color])
-        return UIImage(systemName: "circle.fill", withConfiguration: cfg)
+        return UIImage(systemName: "circle.fill")?
+            .withTintColor(color, renderingMode: .alwaysOriginal)
     }
 
     // MARK: - Incidents list
