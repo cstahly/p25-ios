@@ -9,17 +9,13 @@ struct MapTabView: View {
     )
     @State private var selectedIncident: Incident?
     @State private var detailIncident: Incident?
-    @State private var statusFilter = "active"
+    @State private var priorityFilter = 0  // 0=all, 1=P1 only, 2=P1-P2, 3=P1-P3
 
     var visibleIncidents: [Incident] {
         store.incidents.filter {
             guard $0.coordinate != nil else { return false }
-            switch statusFilter {
-            case "active": return $0.statusKind != "clear" && !$0.stale
-            case "stale":  return $0.stale
-            case "clear":  return $0.statusKind == "clear"
-            default:       return true
-            }
+            if priorityFilter > 0 && $0.priorityLevel > priorityFilter { return false }
+            return true
         }
     }
 
@@ -41,19 +37,19 @@ struct MapTabView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             } else {
                 HStack(spacing: 0) {
-                    ForEach(["all", "active", "stale", "clear"], id: \.self) { f in
-                        Button(f.capitalized) { statusFilter = f }
-                            .font(.caption.weight(statusFilter == f ? .bold : .regular))
+                    ForEach([(0, "All"), (1, "P1"), (2, "P1–2"), (3, "P1–3")], id: \.0) { val, label in
+                        Button(label) { priorityFilter = val }
+                            .font(.caption.weight(priorityFilter == val ? .bold : .regular))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .background(statusFilter == f ? Color.accentColor : Color(.systemBackground))
-                            .foregroundColor(statusFilter == f ? .white : .primary)
+                            .background(priorityFilter == val ? Color.accentColor : Color(.systemBackground))
+                            .foregroundColor(priorityFilter == val ? .white : .primary)
                     }
                 }
                 .clipShape(Capsule())
                 .shadow(radius: 4)
                 .padding(.bottom, 12)
-                .animation(.default, value: statusFilter)
+                .animation(.default, value: priorityFilter)
             }
         }
         .sheet(item: $detailIncident) { inc in
@@ -88,14 +84,7 @@ struct IncidentMapPin: View {
         .animation(.spring(), value: isSelected)
     }
 
-    var pinColor: Color {
-        switch incident.statusKind {
-        case "active": return .red
-        case "routine": return .orange
-        case "clear":  return .gray
-        default:       return .yellow
-        }
-    }
+    var pinColor: Color { incident.priorityColor }
 }
 
 struct IncidentCallout: View {
