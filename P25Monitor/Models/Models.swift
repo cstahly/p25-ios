@@ -112,6 +112,9 @@ struct Incident: Identifiable, Codable, Equatable {
     let firstTxId: Int?
     let lastTxId: Int?
     let priority: Int?  // 1-5 urgency; nil from older server = treat as 3
+    let isStale: Bool?
+
+    var stale: Bool { isStale ?? false }
 
     enum CodingKeys: String, CodingKey {
         case id, number, title, agency, status, location, lat, lng
@@ -121,6 +124,7 @@ struct Incident: Identifiable, Codable, Equatable {
         case details, action, priority
         case firstTxId  = "first_tx_id"
         case lastTxId   = "last_tx_id"
+        case isStale    = "is_stale"
     }
 }
 
