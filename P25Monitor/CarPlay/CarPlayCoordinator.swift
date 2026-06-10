@@ -76,6 +76,8 @@ class CarPlayCoordinator: NSObject {
         let prioritized = incidents
             .filter { $0.coordinate != nil }
             .sorted {
+                let p0 = $0.priority ?? 3, p1 = $1.priority ?? 3
+                if p0 != p1 { return p0 > p1 }
                 let rank: (String) -> Int = { k in k == "active" ? 0 : k == "watch" ? 1 : 2 }
                 return rank($0.statusKind) < rank($1.statusKind)
             }

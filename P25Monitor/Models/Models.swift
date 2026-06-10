@@ -88,13 +88,14 @@ struct Incident: Identifiable, Codable, Equatable {
     let action: String?
     let firstTxId: Int?
     let lastTxId: Int?
+    let priority: Int?  // 1-5 urgency; nil from older server = treat as 3
 
     enum CodingKeys: String, CodingKey {
         case id, number, title, agency, status, location, lat, lng
         case statusKind = "status_kind"
         case firstSeen  = "first_seen"
         case lastSeen   = "last_seen"
-        case details, action
+        case details, action, priority
         case firstTxId  = "first_tx_id"
         case lastTxId   = "last_tx_id"
     }
