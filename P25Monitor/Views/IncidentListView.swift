@@ -3,9 +3,22 @@ import SwiftUI
 struct IncidentListView: View {
     @EnvironmentObject var store: P25Store
     @State private var statusFilter = "active"
+    @State private var sortByPriority = false
 
     var filtered: [Incident] {
-        store.incidents.filter { statusFilter == "all" || $0.statusKind == statusFilter }
+        var list = store.incidents.filter {
+            statusFilter == "all"    ? true :
+            statusFilter == "open"   ? ($0.statusKind != "clear") :
+            statusFilter == "high"   ? $0.priorityLevel <= 2 :
+                                       $0.statusKind == statusFilter
+        }
+        if sortByPriority {
+            list.sort {
+                if $0.priorityLevel != $1.priorityLevel { return $0.priorityLevel < $1.priorityLevel }
+                return ($0.lastSeen ?? "") > ($1.lastSeen ?? "")
+            }
+        }
+        return list
     }
 
     var body: some View {
@@ -33,12 +46,22 @@ struct IncidentListView: View {
             .navigationTitle("Incidents")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        ForEach(["all", "active", "watch", "clear"], id: \.self) { f in
-                            Button(f.capitalized) { statusFilter = f }
+                    HStack(spacing: 8) {
+                        Button {
+                            sortByPriority.toggle()
+                        } label: {
+                            Image(systemName: sortByPriority ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
+                                .foregroundColor(sortByPriority ? .orange : .secondary)
                         }
-                    } label: {
-                        Label(statusFilter.capitalized, systemImage: "line.3.horizontal.decrease.circle")
+                        Menu {
+                            Button("Open") { statusFilter = "open" }
+                            Button("Active") { statusFilter = "active" }
+                            Button("High Priority (P1–P2)") { statusFilter = "high" }
+                            Button("All") { statusFilter = "all" }
+                        } label: {
+                            Label(statusFilter == "high" ? "High" : statusFilter.capitalized,
+                                  systemImage: "line.3.horizontal.decrease.circle")
+                        }
                     }
                 }
             }
@@ -85,13 +108,24 @@ struct IncidentRow: View {
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
-                Text(incident.statusKind.capitalized)
-                    .font(.caption2)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(statusColor.opacity(0.15))
-                    .foregroundColor(statusColor)
-                    .clipShape(Capsule())
+                HStack(spacing: 4) {
+                    if incident.priorityLevel <= 2 {
+                        Text("P\(incident.priorityLevel)")
+                            .font(.caption2.weight(.bold))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(incident.priorityColor.opacity(0.15))
+                            .foregroundColor(incident.priorityColor)
+                            .clipShape(Capsule())
+                    }
+                    Text(incident.statusKind.capitalized)
+                        .font(.caption2)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(statusColor.opacity(0.15))
+                        .foregroundColor(statusColor)
+                        .clipShape(Capsule())
+                }
             }
         }
     }

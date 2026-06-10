@@ -40,6 +40,10 @@ struct IncidentDetailView: View {
             // Status + location
             Section {
                 LabeledContent("Status", value: incident.status)
+                LabeledContent("Priority") {
+                    Text(incident.priorityLabel)
+                        .foregroundColor(incident.priorityLevel <= 2 ? incident.priorityColor : .primary)
+                }
                 if !incident.location.isEmpty {
                     LabeledContent("Location", value: incident.location)
                 }

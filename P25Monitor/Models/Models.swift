@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import SwiftUI
 
 struct Incident: Identifiable, Codable, Equatable {
     let id: String
@@ -25,6 +26,26 @@ struct Incident: Identifiable, Codable, Equatable {
         case "watch":   return "🟡"
         case "clear":   return "⚪"
         default:        return "🟠"
+        }
+    }
+
+    var priorityLevel: Int { priority ?? 3 }
+
+    var priorityLabel: String {
+        switch priorityLevel {
+        case 1: return "1 — Critical"
+        case 2: return "2 — Serious"
+        case 4: return "4 — Minor"
+        case 5: return "5 — Routine"
+        default: return "3 — Moderate"
+        }
+    }
+
+    var priorityColor: Color {
+        switch priorityLevel {
+        case 1: return .red
+        case 2: return .orange
+        default: return .secondary
         }
     }
 

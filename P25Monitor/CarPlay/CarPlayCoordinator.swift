@@ -77,7 +77,7 @@ class CarPlayCoordinator: NSObject {
             .filter { $0.coordinate != nil }
             .sorted {
                 let p0 = $0.priority ?? 3, p1 = $1.priority ?? 3
-                if p0 != p1 { return p0 > p1 }
+                if p0 != p1 { return p0 < p1 } // P1 = highest urgency
                 let rank: (String) -> Int = { k in k == "active" ? 0 : k == "watch" ? 1 : 2 }
                 return rank($0.statusKind) < rank($1.statusKind)
             }
@@ -148,8 +148,9 @@ class CarPlayCoordinator: NSObject {
     @MainActor
     private func pushIncidentDetail(_ incident: Incident) {
         var rows: [CPInformationItem] = [
-            CPInformationItem(title: "Status",  detail: "\(incident.statusEmoji) \(incident.status)"),
-            CPInformationItem(title: "Agency",  detail: incident.agency),
+            CPInformationItem(title: "Status",   detail: "\(incident.statusEmoji) \(incident.status)"),
+            CPInformationItem(title: "Priority", detail: incident.priorityLabel),
+            CPInformationItem(title: "Agency",   detail: incident.agency),
         ]
         if !incident.location.isEmpty {
             rows.append(CPInformationItem(title: "Location", detail: incident.location))
