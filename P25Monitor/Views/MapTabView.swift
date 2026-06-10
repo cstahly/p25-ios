@@ -58,7 +58,7 @@ struct MapTabView: View {
             VStack(spacing: 6) {
                 // Status filter
                 HStack(spacing: 0) {
-                    ForEach(["all", "active", "watch", "clear"], id: \.self) { f in
+                    ForEach(["all", "active", "routine", "clear"], id: \.self) { f in
                         Button(f.capitalized) { statusFilter = f }
                             .font(.caption.weight(statusFilter == f ? .bold : .regular))
                             .padding(.horizontal, 12)
@@ -122,7 +122,7 @@ struct IncidentMapPin: View {
     var pinColor: Color {
         switch incident.statusKind {
         case "active": return .red
-        case "watch":  return .orange
+        case "routine": return .orange
         case "clear":  return .gray
         default:       return .yellow
         }

@@ -1,0 +1,5 @@
+P25Monitor/Network/Secrets.swift
+Build/
+*.xcuserstate
+xcuserdata/
+DerivedData/

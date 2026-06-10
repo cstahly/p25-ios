@@ -9,8 +9,11 @@
 /* Begin PBXBuildFile section */
 		04409DA4BB90ED1BDA905EA3 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E51EEB9DEBD55B391A2FDC77 /* SettingsView.swift */; };
 		064CF00686B34E890F74E56C /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D6DC78454C72D28023E1FD2 /* AppDelegate.swift */; };
+		07AA5A0B8496954BCD1F46D3 /* LogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2176A0A17882E2616BFF22C8 /* LogView.swift */; };
 		109B82E1496A030886A1B34A /* P25Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C00C29FBD7C15722A8D0E3 /* P25Store.swift */; };
+		211506A90CD6C9044D6BD9C4 /* IncidentDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D381075EC104CD0355E246A8 /* IncidentDetailView.swift */; };
 		2BD1687D6915BDB5CA375979 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4938CE236A451FD8DB822922 /* Models.swift */; };
+		3E1321622B28FC4C97D54951 /* Secrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A6234E792E318F956627F0 /* Secrets.swift */; };
 		467E0B768B14228B224EDEBA /* P25AudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D3335F8E344282D2C931930 /* P25AudioPlayer.swift */; };
 		60428CE86AF75903017B0087 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B025FF06582D389BC748EE18 /* Assets.xcassets */; };
 		6F4C42FD13B7348E0982CABD /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA3CDA977EF4AC99455EBE6A /* ContentView.swift */; };
@@ -25,8 +28,9 @@
 
 /* Begin PBXFileReference section */
 		06E1FEB8C5BC1FF95FE94E15 /* CarPlaySceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlaySceneDelegate.swift; sourceTree = "<group>"; };
-		115A94CFE2727E8DD5E19C29 /* P25Monitor.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = P25Monitor.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		115A94CFE2727E8DD5E19C29 /* P25Monitor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = P25Monitor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		180CCD90881D68963D5877F1 /* P25Client.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P25Client.swift; sourceTree = "<group>"; };
+		2176A0A17882E2616BFF22C8 /* LogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogView.swift; sourceTree = "<group>"; };
 		36C00C29FBD7C15722A8D0E3 /* P25Store.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P25Store.swift; sourceTree = "<group>"; };
 		3E864B5B0CC87B2BA4B661CD /* AudioControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioControlView.swift; sourceTree = "<group>"; };
 		4938CE236A451FD8DB822922 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -35,9 +39,12 @@
 		8D6DC78454C72D28023E1FD2 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		9A9C0AE5A48E98FC8F394BC5 /* P25Monitor.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = P25Monitor.entitlements; sourceTree = "<group>"; };
 		ABE8A1D61D3D96D77661342F /* P25MonitorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P25MonitorApp.swift; sourceTree = "<group>"; };
+		AFA7C8DCFB7C79A922C2106A /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		B025FF06582D389BC748EE18 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B1A6234E792E318F956627F0 /* Secrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Secrets.swift; sourceTree = "<group>"; };
 		BFAC9CC93E6F10AAE6C1C367 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		D3352FFC26C2CB1BDD99612B /* CarPlayCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlayCoordinator.swift; sourceTree = "<group>"; };
+		D381075EC104CD0355E246A8 /* IncidentDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncidentDetailView.swift; sourceTree = "<group>"; };
 		E51EEB9DEBD55B391A2FDC77 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		F0E0BCA464670BC2EA6335F2 /* IncidentListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncidentListView.swift; sourceTree = "<group>"; };
 		FA3CDA977EF4AC99455EBE6A /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -49,7 +56,9 @@
 			children = (
 				3E864B5B0CC87B2BA4B661CD /* AudioControlView.swift */,
 				FA3CDA977EF4AC99455EBE6A /* ContentView.swift */,
+				D381075EC104CD0355E246A8 /* IncidentDetailView.swift */,
 				F0E0BCA464670BC2EA6335F2 /* IncidentListView.swift */,
+				2176A0A17882E2616BFF22C8 /* LogView.swift */,
 				57021217AD418FD0152965EE /* MapTabView.swift */,
 				E51EEB9DEBD55B391A2FDC77 /* SettingsView.swift */,
 			);
@@ -134,7 +143,9 @@
 		C90494559787968287EFA4EF /* Network */ = {
 			isa = PBXGroup;
 			children = (
+				AFA7C8DCFB7C79A922C2106A /* .gitignore */,
 				180CCD90881D68963D5877F1 /* P25Client.swift */,
+				B1A6234E792E318F956627F0 /* Secrets.swift */,
 			);
 			path = Network;
 			sourceTree = "<group>";
@@ -168,11 +179,6 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
-				TargetAttributes = {
-					CF7C802A451056967E6BA6BC = {
-						DevelopmentTeam = 634QAM3ZHG;
-					};
-				};
 			};
 			buildConfigurationList = 8F65A38388C97DDC3ACB54BA /* Build configuration list for PBXProject "P25Monitor" */;
 			developmentRegion = en;
@@ -214,13 +220,16 @@
 				889EAEB2DC47FE3AB08A36D7 /* CarPlayCoordinator.swift in Sources */,
 				978DF3312ED99840EDF232F4 /* CarPlaySceneDelegate.swift in Sources */,
 				6F4C42FD13B7348E0982CABD /* ContentView.swift in Sources */,
+				211506A90CD6C9044D6BD9C4 /* IncidentDetailView.swift in Sources */,
 				F363B28ADEDF51C27F21BC20 /* IncidentListView.swift in Sources */,
+				07AA5A0B8496954BCD1F46D3 /* LogView.swift in Sources */,
 				CA854CE60ED8AABA00B87658 /* MapTabView.swift in Sources */,
 				2BD1687D6915BDB5CA375979 /* Models.swift in Sources */,
 				467E0B768B14228B224EDEBA /* P25AudioPlayer.swift in Sources */,
 				F2BF313C1FDC8E1140D3BC7F /* P25Client.swift in Sources */,
 				DC159F652AF6DB9970A8A673 /* P25MonitorApp.swift in Sources */,
 				109B82E1496A030886A1B34A /* P25Store.swift in Sources */,
+				3E1321622B28FC4C97D54951 /* Secrets.swift in Sources */,
 				04409DA4BB90ED1BDA905EA3 /* SettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -360,7 +369,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.cstahly.P25Monitor;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sadbabyrabbit.P25Monitor;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -380,7 +389,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.cstahly.P25Monitor;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sadbabyrabbit.P25Monitor;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = "1,2";

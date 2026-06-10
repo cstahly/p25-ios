@@ -136,7 +136,6 @@ struct IncidentRow: View {
         switch kind {
         case "active": return 0
         case "routine": return 1
-        case "routine": return 2
         case "clear":  return 3
         default:       return 2
         }
