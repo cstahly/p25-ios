@@ -9,17 +9,37 @@ struct MapTabView: View {
     )
     @State private var selectedIncident: Incident?
     @State private var detailIncident: Incident?
-    @State private var mapFilter = "active"  // "all" | "active" | "critical"
+    @State private var mapFilter = "now"  // "critical" | "now" | "8hr" | "all"
 
     var visibleIncidents: [Incident] {
-        store.incidents.filter {
+        let cutoff8hr = Date().addingTimeInterval(-8 * 3600)
+        return store.incidents.filter {
             guard $0.coordinate != nil else { return false }
             switch mapFilter {
-            case "active":   return $0.statusKind != "clear"
-            case "critical": return $0.statusKind != "clear" && $0.priorityLevel <= 2
+            case "critical": return $0.statusKind != "clear" && !$0.stale && $0.priorityLevel <= 2
+            case "now":      return $0.statusKind != "clear" && !$0.stale
+            case "8hr":      return $0.statusKind != "clear" || _withinCutoff($0, cutoff: cutoff8hr)
             default:         return true
             }
         }
+    }
+
+    private func _withinCutoff(_ inc: Incident, cutoff: Date) -> Bool {
+        guard let raw = inc.firstSeen else { return false }
+        let df = DateFormatter()
+        for fmt in ["yyyy-MM-dd HH:mm:ss", "HH:mm:ss"] {
+            df.dateFormat = fmt
+            if var d = df.date(from: raw) {
+                if fmt == "HH:mm:ss" {
+                    let cal = Calendar.current; let now = Date()
+                    d = cal.date(bySettingHour: cal.component(.hour, from: d),
+                                 minute: cal.component(.minute, from: d),
+                                 second: cal.component(.second, from: d), of: now) ?? d
+                }
+                return d >= cutoff
+            }
+        }
+        return false
     }
 
     var body: some View {
@@ -40,10 +60,10 @@ struct MapTabView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             } else {
                 HStack(spacing: 1) {
-                    ForEach([("all", "All"), ("active", "Active"), ("critical", "Critical")], id: \.0) { val, label in
+                    ForEach([("critical", "Critical"), ("now", "Now"), ("8hr", "8hr"), ("all", "All")], id: \.0) { val, label in
                         Button(label) { mapFilter = val }
                             .font(.subheadline.weight(mapFilter == val ? .semibold : .regular))
-                            .frame(minWidth: 88)
+                            .frame(minWidth: 72)
                             .padding(.vertical, 14)
                             .background(mapFilter == val ? Color.accentColor : Color(.systemBackground))
                             .foregroundColor(mapFilter == val ? .white : .primary)
