@@ -38,7 +38,7 @@ struct MapTabView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack {
             Map(coordinateRegion: $region, annotationItems: visibleIncidents) { incident in
                 MapAnnotation(coordinate: incident.coordinate!) {
                     IncidentMapPin(incident: incident, isSelected: selectedIncident?.id == incident.id)
