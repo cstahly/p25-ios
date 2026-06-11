@@ -87,14 +87,18 @@ struct MapTabView: View {
     @State private var detailIncident: Incident?
     @State private var mapFilter = "now"  // "critical" | "now" | "8hr" | "all"
 
+    // Semantics match the web map's defaults: time-windowed on last_seen.
+    // now = 4h window (any status), critical = open P1-P2 within 4h,
+    // 8hr = 8h window, all = everything.
     var visibleIncidents: [Incident] {
-        let cutoff8hr = Date().addingTimeInterval(-8 * 3600)
+        let h4 = Date().addingTimeInterval(-4 * 3600)
+        let h8 = Date().addingTimeInterval(-8 * 3600)
         return store.incidents.filter {
             guard $0.coordinate != nil else { return false }
             switch mapFilter {
-            case "critical": return $0.statusKind != "clear" && $0.priorityLevel <= 2
-            case "now":      return $0.statusKind != "clear"
-            case "8hr":      return $0.statusKind != "clear" || _withinCutoff($0, cutoff: cutoff8hr)
+            case "critical": return $0.statusKind != "clear" && $0.priorityLevel <= 2 && _seen($0, since: h4)
+            case "now":      return _seen($0, since: h4)
+            case "8hr":      return _seen($0, since: h8)
             default:         return true
             }
         }
@@ -104,8 +108,8 @@ struct MapTabView: View {
         spreadCoincident(visibleIncidents).map { MapPinItem(incident: $0.incident, coordinate: $0.coordinate) }
     }
 
-    private func _withinCutoff(_ inc: Incident, cutoff: Date) -> Bool {
-        guard let raw = inc.firstSeen else { return false }
+    private func _seen(_ inc: Incident, since cutoff: Date) -> Bool {
+        guard let raw = inc.lastSeen else { return false }
         let df = DateFormatter()
         for fmt in ["yyyy-MM-dd HH:mm:ss", "HH:mm:ss"] {
             df.dateFormat = fmt
