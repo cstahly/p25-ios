@@ -223,7 +223,7 @@ class CarPlayCoordinator: NSObject {
         interfaceController.popToRootTemplate(animated: false) { [weak self] _, _ in
             Task { @MainActor in
                 guard let self, let poi = self.poiTemplate else { return }
-                self.tabBarTemplate?.selectTemplate(poi)
+                self.tabBarTemplate?.select(poi)
                 if let idx = poi.pointsOfInterest.firstIndex(where: {
                     ($0.userInfo as? Incident)?.number == incident.number
                 }) {
