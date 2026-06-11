@@ -58,6 +58,8 @@ class P25AudioPlayer: ObservableObject {
     func playClip(_ filename: String) async {
         guard !isLoadingClip else { return }
         stopClip()
+        // Re-activate the session — it may be inactive when launched via CarPlay
+        try? AVAudioSession.sharedInstance().setActive(true)
         isLoadingClip = true
         currentClipFile = filename
         defer { isLoadingClip = false }

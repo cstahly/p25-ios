@@ -40,6 +40,10 @@ class CarPlayCoordinator: NSObject {
         let log = CPListTemplate(title: "Radio Log", sections: [])
         log.tabTitle = "Log"
         log.tabImage = UIImage(systemName: "text.bubble")
+        let filterBtn = CPBarButton(title: "Filter") { [weak self] _ in
+            Task { @MainActor in self?.pushLogFilterChooser() }
+        }
+        log.trailingNavigationBarButtons = [filterBtn]
         logTemplate = log
 
         let tabs = CPTabBarTemplate(templates: [poi, lt, log])
@@ -151,8 +155,15 @@ class CarPlayCoordinator: NSObject {
 
     @MainActor
     private func updateList(incidents: [Incident]) {
-        let active  = incidents.filter { $0.statusKind != "clear" }
-        let cleared = incidents.filter { $0.statusKind == "clear" }
+        // Priority-first sort, matching the web incident board
+        let byPriority: (Incident, Incident) -> Bool = {
+            let p0 = $0.priorityLevel, p1 = $1.priorityLevel
+            if p0 != p1 { return p0 < p1 }
+            let rank: (String) -> Int = { k in k == "active" ? 0 : k == "routine" ? 1 : 2 }
+            return rank($0.statusKind) < rank($1.statusKind)
+        }
+        let active  = incidents.filter { $0.statusKind != "clear" }.sorted(by: byPriority)
+        let cleared = incidents.filter { $0.statusKind == "clear" }.sorted(by: byPriority)
 
         let makeItems: ([Incident]) -> [CPListItem] = { [weak self] list in
             list.prefix(30).map { inc in
@@ -160,7 +171,7 @@ class CarPlayCoordinator: NSObject {
                               inc.location.isEmpty ? nil : inc.location,
                               inc.age.isEmpty      ? nil : inc.age]
                     .compactMap { $0 }.joined(separator: " · ")
-                let item = CPListItem(text: "\(inc.statusEmoji) \(inc.title)", detailText: detail)
+                let item = CPListItem(text: "P\(inc.priorityLevel) \(inc.statusEmoji) \(inc.title)", detailText: detail)
                 item.handler = { [weak self] _, completion in
                     self?.pushIncidentDetail(inc)
                     completion()
@@ -237,9 +248,27 @@ class CarPlayCoordinator: NSObject {
 
     // MARK: - Radio log
 
+    // Agency/trunk filters matching the web feed tabs (default All/All)
+    private var logAgencyFilter = "all"   // all | police | fire | ems
+    private var logTrunkFilter  = "all"   // all | tippecanoe | safet
+
+    private func _agencyMatch(_ tx: TXEvent) -> Bool {
+        guard logAgencyFilter != "all" else { return true }
+        let a = "\(tx.agency ?? "") \(tx.talkgroup ?? "")".uppercased()
+        switch logAgencyFilter {
+        case "police": return a.range(of: "LPD|WLPD|TCSD|PUPD|ISP|SHERIFF|POLICE", options: .regularExpression) != nil
+        case "fire":   return a.range(of: "LFD|WLFD|TCFD|PUFD|FIRE", options: .regularExpression) != nil
+        case "ems":    return a.range(of: "EMS|TEAS", options: .regularExpression) != nil
+        default:       return true
+        }
+    }
+
     @MainActor
     private func updateLog(txList: [TXEvent]) {
-        let items: [CPListItem] = txList.prefix(50).map { tx in
+        let filtered = txList.filter {
+            _agencyMatch($0) && (logTrunkFilter == "all" || $0.trunk == logTrunkFilter)
+        }
+        let items: [CPListItem] = filtered.prefix(50).map { tx in
             let tg   = tx.talkgroup ?? "Unknown"
             let time = tx.time ?? ""
             let item = CPListItem(
@@ -262,7 +291,35 @@ class CarPlayCoordinator: NSObject {
             }
             return item
         }
-        logTemplate?.updateSections([CPListSection(items: items)])
+        let header = (logAgencyFilter == "all" && logTrunkFilter == "all")
+            ? nil : "Filter: \(logAgencyFilter != "all" ? logAgencyFilter.capitalized : "")\(logTrunkFilter != "all" ? " \(logTrunkFilter == "safet" ? "SAFE-T" : "Tippecanoe")" : "")"
+        logTemplate?.updateSections([CPListSection(items: items.isEmpty ? [CPListItem(text: "No transmissions", detailText: nil)] : items,
+                                                   header: header, sectionIndexTitle: nil)])
+    }
+
+    @MainActor
+    private func pushLogFilterChooser() {
+        let agency: [(String, String)] = [("all", "All agencies"), ("police", "Police"), ("fire", "Fire"), ("ems", "EMS")]
+        let trunk:  [(String, String)] = [("all", "Both trunks"), ("tippecanoe", "Tippecanoe"), ("safet", "SAFE-T")]
+        let makeItem: (String, String, Bool, @escaping (String) -> Void) -> CPListItem = { val, label, selected, apply in
+            let item = CPListItem(text: "\(selected ? "✓ " : "")\(label)", detailText: nil)
+            item.handler = { [weak self] _, completion in
+                apply(val)
+                Task { @MainActor in
+                    self?.updateLog(txList: P25Store.shared.recentTX)
+                    self?.interfaceController.popTemplate(animated: true) { _, _ in }
+                    completion()
+                }
+            }
+            return item
+        }
+        let agencyItems = agency.map { v, l in makeItem(v, l, logAgencyFilter == v) { [weak self] in self?.logAgencyFilter = $0 } }
+        let trunkItems  = trunk.map  { v, l in makeItem(v, l, logTrunkFilter == v)  { [weak self] in self?.logTrunkFilter = $0 } }
+        let tmpl = CPListTemplate(title: "Log Filter", sections: [
+            CPListSection(items: agencyItems, header: "Agency", sectionIndexTitle: nil),
+            CPListSection(items: trunkItems,  header: "Trunk",  sectionIndexTitle: nil),
+        ])
+        interfaceController.pushTemplate(tmpl, animated: true) { _, _ in }
     }
 
     // MARK: - Now Playing
