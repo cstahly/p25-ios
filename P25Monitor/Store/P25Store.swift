@@ -25,9 +25,19 @@ class P25Store: ObservableObject {
         guard P25Client.shared.isConfigured else { return }
         guard streamTask == nil else { return }
         Task { await refresh() }
+        Task { await backfillTX() }
         startStreaming()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             Task { await self?.refresh() }
+        }
+    }
+
+    /// Seed recentTX with history so consumers that only read the store
+    /// (CarPlay log) aren't empty until new traffic streams in.
+    func backfillTX() async {
+        guard recentTX.isEmpty else { return }
+        if let rows = try? await P25Client.shared.fetchTransmissions(limit: 50) {
+            if recentTX.isEmpty { recentTX = rows }
         }
     }
 

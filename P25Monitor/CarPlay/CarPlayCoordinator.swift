@@ -7,6 +7,7 @@ import MediaPlayer
 class CarPlayCoordinator: NSObject {
 
     private let interfaceController: CPInterfaceController
+    private var tabBarTemplate: CPTabBarTemplate?
     private var poiTemplate: CPPointOfInterestTemplate?
     private var listTemplate: CPListTemplate?
     private var logTemplate: CPListTemplate?
@@ -42,6 +43,7 @@ class CarPlayCoordinator: NSObject {
         logTemplate = log
 
         let tabs = CPTabBarTemplate(templates: [poi, lt, log])
+        tabBarTemplate = tabs
         interfaceController.setRootTemplate(tabs, animated: false) { _, _ in }
 
         Task { @MainActor in
@@ -73,7 +75,7 @@ class CarPlayCoordinator: NSObject {
 
     @MainActor
     private func updatePOI(incidents: [Incident]) {
-        let prioritized = incidents
+        let prioritized = Array(incidents
             .filter { $0.coordinate != nil && $0.statusKind != "clear" }
             .sorted {
                 let p0 = $0.priority ?? 3, p1 = $1.priority ?? 3
@@ -81,9 +83,10 @@ class CarPlayCoordinator: NSObject {
                 let rank: (String) -> Int = { k in k == "active" ? 0 : k == "routine" ? 1 : 2 }
                 return rank($0.statusKind) < rank($1.statusKind)
             }
-            .prefix(12)
-        let pois: [CPPointOfInterest] = prioritized.compactMap { inc in
-            guard let coord = inc.coordinate else { return nil }
+            .prefix(12))
+        // Spread incidents that geocode to the identical point so pins don't stack
+        let placed = spreadCoincident(prioritized)
+        let pois: [CPPointOfInterest] = placed.map { inc, coord in
             let loc = MKMapItem(placemark: MKPlacemark(coordinate: coord))
             loc.name = "\(inc.statusEmoji) \(inc.title)"
 
@@ -96,7 +99,7 @@ class CarPlayCoordinator: NSObject {
                 detailSubtitle: "\(inc.agency) · \(inc.age)",
                 detailSummary: [inc.action, inc.details?.first]
                     .compactMap { $0 }.filter { !$0.isEmpty }.first,
-                pinImage: pinImage(for: inc.priorityLevel)
+                pinImage: pinImage(for: inc)
             )
             poi.userInfo = inc
             return poi
@@ -104,17 +107,44 @@ class CarPlayCoordinator: NSObject {
         poiTemplate?.setPointsOfInterest(pois, selectedIndex: NSNotFound)
     }
 
-    private func pinImage(for priority: Int) -> UIImage? {
-        let color: UIColor
-        switch priority {
-        case 1: color = UIColor(red: 0.66, green: 0.33, blue: 0.97, alpha: 1)
-        case 2: color = UIColor(red: 0.94, green: 0.27, blue: 0.27, alpha: 1)
-        case 3: color = UIColor(red: 0.92, green: 0.70, blue: 0.03, alpha: 1)
-        case 4: color = UIColor(red: 0.05, green: 0.65, blue: 0.91, alpha: 1)
-        default: color = UIColor(red: 0.28, green: 0.33, blue: 0.41, alpha: 1)
+    /// Numbered circle sized by priority — matches the web/iOS map pins.
+    private func pinImage(for inc: Incident) -> UIImage? {
+        let prio = inc.priorityLevel
+        let stale = inc.stale
+        let live: [Int: UIColor] = [
+            1: UIColor(red: 0.66, green: 0.33, blue: 0.97, alpha: 1),
+            2: UIColor(red: 0.94, green: 0.27, blue: 0.27, alpha: 1),
+            3: UIColor(red: 0.92, green: 0.70, blue: 0.03, alpha: 1),
+            4: UIColor(red: 0.05, green: 0.65, blue: 0.91, alpha: 1),
+            5: UIColor(red: 0.28, green: 0.33, blue: 0.41, alpha: 1),
+        ]
+        let dark: [Int: UIColor] = [
+            1: UIColor(red: 0.45, green: 0.00, blue: 0.89, alpha: 1),
+            2: UIColor(red: 0.80, green: 0.01, blue: 0.01, alpha: 1),
+            3: UIColor(red: 0.65, green: 0.49, blue: 0.00, alpha: 1),
+            4: UIColor(red: 0.00, green: 0.45, blue: 0.66, alpha: 1),
+            5: UIColor(red: 0.18, green: 0.22, blue: 0.29, alpha: 1),
+        ]
+        let fill = (stale ? dark[prio] : live[prio]) ?? .systemYellow
+        let gray = UIColor(red: 0.61, green: 0.64, blue: 0.69, alpha: 1)
+        let size: CGFloat = [1: 34, 2: 30, 3: 26, 4: 22, 5: 20][prio] ?? 26
+
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
+        return renderer.image { ctx in
+            let rect = CGRect(x: 1, y: 1, width: size - 2, height: size - 2)
+            fill.setFill()
+            ctx.cgContext.fillEllipse(in: rect)
+            (stale ? gray : UIColor.white).setStroke()
+            ctx.cgContext.setLineWidth(2)
+            if stale { ctx.cgContext.setLineDash(phase: 0, lengths: [3, 2]) }
+            ctx.cgContext.strokeEllipse(in: rect)
+            let text = "\(prio)" as NSString
+            let font = UIFont.systemFont(ofSize: size * 0.48, weight: .heavy)
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: font, .foregroundColor: stale ? gray : UIColor.white]
+            let ts = text.size(withAttributes: attrs)
+            text.draw(at: CGPoint(x: (size - ts.width) / 2, y: (size - ts.height) / 2), withAttributes: attrs)
         }
-        return UIImage(systemName: "circle.fill")?
-            .withTintColor(color, renderingMode: .alwaysOriginal)
     }
 
     // MARK: - Incidents list
@@ -188,11 +218,19 @@ class CarPlayCoordinator: NSObject {
     @MainActor
     private func focusMapOnIncident(_ incident: Incident) {
         guard incident.coordinate != nil else { return }
-        if let pois = poiTemplate?.pointsOfInterest,
-           let idx = pois.firstIndex(where: { ($0.userInfo as? Incident)?.number == incident.number }) {
-            poiTemplate?.setPointsOfInterest(pois, selectedIndex: idx)
+        // Pop the detail template first, then switch the tab bar to the Map
+        // tab and select the POI — selection before the pop was being lost.
+        interfaceController.popToRootTemplate(animated: false) { [weak self] _, _ in
+            Task { @MainActor in
+                guard let self, let poi = self.poiTemplate else { return }
+                self.tabBarTemplate?.selectTemplate(poi)
+                if let idx = poi.pointsOfInterest.firstIndex(where: {
+                    ($0.userInfo as? Incident)?.number == incident.number
+                }) {
+                    poi.setPointsOfInterest(poi.pointsOfInterest, selectedIndex: idx)
+                }
+            }
         }
-        interfaceController.popToRootTemplate(animated: true) { _, _ in }
     }
 
     // MARK: - Radio log
