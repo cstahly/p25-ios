@@ -238,6 +238,8 @@ struct IncidentMapView: UIViewRepresentable {
                 v.annotation = ia
                 v.image = incidentPinImage(for: ia.incident)
                 v.canShowCallout = false
+                v.clusteringIdentifier = nil       // never collate into a "12" bubble
+                v.displayPriority = .required       // never get decluttered/hidden
                 return v
             }
             if let ca = annotation as? CameraAnnotation {
@@ -246,6 +248,8 @@ struct IncidentMapView: UIViewRepresentable {
                 v.annotation = ca
                 v.image = cameraPinImage(dir: ca.camera.dir)
                 v.canShowCallout = true
+                v.clusteringIdentifier = nil
+                v.displayPriority = .required
                 return v
             }
             return nil
@@ -312,7 +316,9 @@ struct MapTabView: View {
         let h4 = Date().addingTimeInterval(-4 * 3600)
         let h8 = Date().addingTimeInterval(-8 * 3600)
         return store.incidents.filter {
-            guard $0.coordinate != nil else { return false }
+            // Skip the un-mappable approximate pile (everything that geocoded to the
+            // city centroid) — it's the blob that made the map unreadable.
+            guard $0.coordinate != nil, !$0.approxLocation else { return false }
             switch mapFilter {
             case "critical": return $0.statusKind != "clear" && $0.priorityLevel <= 2 && _seen($0, since: h4)
             case "now":      return _seen($0, since: h4)
