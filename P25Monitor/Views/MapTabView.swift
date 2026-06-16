@@ -410,7 +410,7 @@ struct MapTabView: View {
             .environmentObject(store)
             .environmentObject(audio)
         }
-        .onChange(of: store.mapFocus) { _, foc in
+        .onChange(of: store.mapFocus) { foc in
             // Jump here from an incident elsewhere: recenter + open its callout.
             guard let foc, let c = foc.coordinate else { return }
             recenter = c
