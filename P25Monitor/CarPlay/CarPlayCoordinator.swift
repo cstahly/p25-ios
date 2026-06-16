@@ -88,22 +88,32 @@ class CarPlayCoordinator: NSObject {
                 return rank($0.statusKind) < rank($1.statusKind)
             }
             .prefix(12))
-        // Spread incidents that geocode to the identical point so pins don't stack
-        let placed = spreadCoincident(prioritized)
-        let pois: [CPPointOfInterest] = placed.map { inc, coord in
+        // Spread incidents that geocode to the identical point so pins don't stack,
+        // then restore priority order (spreadCoincident returns arbitrary order).
+        let placed = spreadCoincident(prioritized).sorted {
+            let p0 = $0.incident.priorityLevel, p1 = $1.incident.priorityLevel
+            if p0 != p1 { return p0 < p1 }
+            return $0.incident.number > $1.incident.number
+        }
+        // Number pins and list rows the same so you can match a map pin to its row
+        // (pin "3" == row "3.") — the list and map share this POI array order.
+        let pois: [CPPointOfInterest] = placed.enumerated().map { idx, pair in
+            let inc = pair.incident
+            let coord = pair.coordinate
+            let label = "\(idx + 1)"
             let loc = MKMapItem(placemark: MKPlacemark(coordinate: coord))
-            loc.name = "\(inc.statusEmoji) \(inc.title)"
+            loc.name = "\(label). \(inc.statusEmoji) \(inc.title)"
 
             let poi = CPPointOfInterest(
                 location: loc,
-                title: "\(inc.statusEmoji) \(inc.title)",
-                subtitle: inc.agency,
+                title: "\(label). \(inc.statusEmoji) \(inc.title)",
+                subtitle: "P\(inc.priorityLevel) · \(inc.agency)",
                 summary: inc.location.isEmpty ? nil : inc.location,
                 detailTitle: "\(inc.statusEmoji) \(inc.title)",
                 detailSubtitle: "\(inc.agency) · \(inc.age)",
                 detailSummary: [inc.action, inc.details?.first]
                     .compactMap { $0 }.filter { !$0.isEmpty }.first,
-                pinImage: pinImage(for: inc)
+                pinImage: pinImage(for: inc, label: label)
             )
             poi.userInfo = inc
             return poi
@@ -111,8 +121,9 @@ class CarPlayCoordinator: NSObject {
         poiTemplate?.setPointsOfInterest(pois, selectedIndex: NSNotFound)
     }
 
-    /// Numbered circle sized by priority — matches the web/iOS map pins.
-    private func pinImage(for inc: Incident) -> UIImage? {
+    /// Circle colored+sized by priority, labeled with the POI's list number so a
+    /// pin can be matched to its row in the list.
+    private func pinImage(for inc: Incident, label: String) -> UIImage? {
         let prio = inc.priorityLevel
         let stale = inc.stale
         let live: [Int: UIColor] = [
@@ -142,8 +153,8 @@ class CarPlayCoordinator: NSObject {
             ctx.cgContext.setLineWidth(2)
             if stale { ctx.cgContext.setLineDash(phase: 0, lengths: [3, 2]) }
             ctx.cgContext.strokeEllipse(in: rect)
-            let text = "\(prio)" as NSString
-            let font = UIFont.systemFont(ofSize: size * 0.48, weight: .heavy)
+            let text = label as NSString
+            let font = UIFont.systemFont(ofSize: size * (label.count > 1 ? 0.40 : 0.50), weight: .heavy)
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: font, .foregroundColor: stale ? gray : UIColor.white]
             let ts = text.size(withAttributes: attrs)
