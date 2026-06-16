@@ -42,8 +42,15 @@ class P25Client {
     // MARK: - API calls
 
     func fetchState() async throws -> StateResponse {
-        let (data, _) = try await URLSession.shared.data(for: req("/api/state"))
+        // scope=all: the app shows full history (All filter) + feeds the map heatmap.
+        // The server defaults to a light 24h window; we explicitly opt into everything.
+        let (data, _) = try await URLSession.shared.data(for: req("/api/state?scope=all"))
         return try JSONDecoder().decode(StateResponse.self, from: data)
+    }
+
+    func fetchALPR() async throws -> [ALPRCamera] {
+        let (data, _) = try await URLSession.shared.data(for: req("/api/alpr"))
+        return try JSONDecoder().decode(ALPRResponse.self, from: data).cameras
     }
 
     func setAudioFilter(_ filter: String) async throws {

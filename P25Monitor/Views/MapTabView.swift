@@ -33,10 +33,211 @@ func spreadCoincident(_ incidents: [Incident]) -> [(incident: Incident, coordina
     return out
 }
 
-struct MapPinItem: Identifiable {
+// MARK: - Pin images (numbered priority circle; matches web + CarPlay)
+
+func incidentPinImage(for inc: Incident) -> UIImage {
+    let prio = inc.priorityLevel
+    let stale = inc.stale
+    let live: [Int: UIColor] = [
+        1: UIColor(red: 0.66, green: 0.33, blue: 0.97, alpha: 1),
+        2: UIColor(red: 0.94, green: 0.27, blue: 0.27, alpha: 1),
+        3: UIColor(red: 0.92, green: 0.70, blue: 0.03, alpha: 1),
+        4: UIColor(red: 0.05, green: 0.65, blue: 0.91, alpha: 1),
+        5: UIColor(red: 0.28, green: 0.33, blue: 0.41, alpha: 1),
+    ]
+    let dark: [Int: UIColor] = [
+        1: UIColor(red: 0.45, green: 0.00, blue: 0.89, alpha: 1),
+        2: UIColor(red: 0.80, green: 0.01, blue: 0.01, alpha: 1),
+        3: UIColor(red: 0.65, green: 0.49, blue: 0.00, alpha: 1),
+        4: UIColor(red: 0.00, green: 0.45, blue: 0.66, alpha: 1),
+        5: UIColor(red: 0.18, green: 0.22, blue: 0.29, alpha: 1),
+    ]
+    let fill = (stale ? dark[prio] : live[prio]) ?? .systemYellow
+    let gray = UIColor(red: 0.61, green: 0.64, blue: 0.69, alpha: 1)
+    let size: CGFloat = [1: 30, 2: 26, 3: 22, 4: 18, 5: 16][prio] ?? 22
+    let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
+    return renderer.image { ctx in
+        let rect = CGRect(x: 1, y: 1, width: size - 2, height: size - 2)
+        fill.setFill()
+        ctx.cgContext.fillEllipse(in: rect)
+        (stale ? gray : UIColor.white).setStroke()
+        ctx.cgContext.setLineWidth(2)
+        if stale { ctx.cgContext.setLineDash(phase: 0, lengths: [3, 2]) }
+        ctx.cgContext.strokeEllipse(in: rect)
+        let text = "\(prio)" as NSString
+        let font = UIFont.systemFont(ofSize: size * 0.48, weight: .heavy)
+        let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: stale ? gray : UIColor.white]
+        let ts = text.size(withAttributes: attrs)
+        text.draw(at: CGPoint(x: (size - ts.width) / 2, y: (size - ts.height) / 2), withAttributes: attrs)
+    }
+}
+
+func cameraPinImage() -> UIImage {
+    let size: CGFloat = 14
+    let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
+    return renderer.image { ctx in
+        let rect = CGRect(x: 1, y: 1, width: size - 2, height: size - 2)
+        UIColor(red: 0.86, green: 0.15, blue: 0.15, alpha: 1).setFill()
+        ctx.cgContext.fillEllipse(in: rect)
+        UIColor.white.setStroke()
+        ctx.cgContext.setLineWidth(2)
+        ctx.cgContext.strokeEllipse(in: rect)
+    }
+}
+
+// MARK: - Annotations
+
+final class IncidentAnnotation: NSObject, MKAnnotation {
     let incident: Incident
     let coordinate: CLLocationCoordinate2D
-    var id: String { incident.id }
+    init(incident: Incident, coordinate: CLLocationCoordinate2D) {
+        self.incident = incident
+        self.coordinate = coordinate
+    }
+}
+
+final class CameraAnnotation: NSObject, MKAnnotation {
+    let camera: ALPRCamera
+    var coordinate: CLLocationCoordinate2D { camera.coordinate }
+    var title: String? { "\(camera.operatorName) camera" }
+    var subtitle: String? {
+        if let d = camera.dir { return "Faces \(Int(d.rounded()))° · DeFlock/OSM" }
+        return "DeFlock/OSM"
+    }
+    init(camera: ALPRCamera) { self.camera = camera }
+}
+
+// MARK: - Heatmap overlay (additive radial-gradient density, precise points only)
+
+final class HeatOverlay: NSObject, MKOverlay {
+    let points: [CLLocationCoordinate2D]
+    let coordinate: CLLocationCoordinate2D
+    let boundingMapRect: MKMapRect = .world
+    init(points: [CLLocationCoordinate2D]) {
+        self.points = points
+        self.coordinate = points.first ?? kFallbackCenter
+    }
+}
+
+final class HeatOverlayRenderer: MKOverlayRenderer {
+    override func draw(_ mapRect: MKMapRect, zoomScale: MKZoomScale, in context: CGContext) {
+        guard let heat = overlay as? HeatOverlay else { return }
+        let radius = CGFloat(26) / zoomScale
+        let cs = CGColorSpaceCreateDeviceRGB()
+        let colors = [
+            UIColor(red: 1, green: 1.0, blue: 0, alpha: 0.55).cgColor,
+            UIColor(red: 1, green: 0.3, blue: 0, alpha: 0.35).cgColor,
+            UIColor(red: 1, green: 0.0, blue: 0, alpha: 0.0).cgColor,
+        ] as CFArray
+        guard let grad = CGGradient(colorsSpace: cs, colors: colors, locations: [0, 0.5, 1]) else { return }
+        context.setBlendMode(.plusLighter)
+        let drawRect = mapRect.insetBy(dx: -Double(radius), dy: -Double(radius))
+        for c in heat.points {
+            let mp = MKMapPoint(c)
+            guard drawRect.contains(mp) else { continue }
+            let p = point(for: mp)
+            context.drawRadialGradient(grad, startCenter: p, startRadius: 0,
+                                       endCenter: p, endRadius: radius, options: [])
+        }
+    }
+}
+
+// MARK: - MapKit bridge
+
+struct IncidentMapView: UIViewRepresentable {
+    var pins: [(incident: Incident, coordinate: CLLocationCoordinate2D)]
+    var cameras: [ALPRCamera]
+    var showHeat: Bool
+    var heatPoints: [CLLocationCoordinate2D]
+    var showALPR: Bool
+    @Binding var recenter: CLLocationCoordinate2D?
+    var onSelect: (Incident) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeUIView(context: Context) -> MKMapView {
+        let mv = MKMapView()
+        mv.delegate = context.coordinator
+        mv.showsUserLocation = true
+        mv.setRegion(MKCoordinateRegion(center: kFallbackCenter,
+                     span: MKCoordinateSpan(latitudeDelta: 0.12, longitudeDelta: 0.12)), animated: false)
+        return mv
+    }
+
+    func updateUIView(_ mv: MKMapView, context: Context) {
+        context.coordinator.parent = self
+        if let c = recenter {
+            mv.setRegion(MKCoordinateRegion(center: c,
+                         span: MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08)), animated: true)
+            DispatchQueue.main.async { self.recenter = nil }
+        }
+        context.coordinator.syncAnnotations(mv, pins: pins, cameras: showALPR ? cameras : [])
+        context.coordinator.syncHeat(mv, show: showHeat, points: heatPoints)
+    }
+
+    final class Coordinator: NSObject, MKMapViewDelegate {
+        var parent: IncidentMapView
+        private var heat: HeatOverlay?
+        private var heatKey = -2
+        private var pinKey = ""
+        init(_ p: IncidentMapView) { parent = p }
+
+        func syncAnnotations(_ mv: MKMapView,
+                             pins: [(incident: Incident, coordinate: CLLocationCoordinate2D)],
+                             cameras: [ALPRCamera]) {
+            let key = pins.map { "\($0.incident.id):\($0.incident.priorityLevel):\($0.incident.stale)" }
+                .joined() + "|cam\(cameras.count)"
+            guard key != pinKey else { return }
+            pinKey = key
+            mv.removeAnnotations(mv.annotations.filter { !($0 is MKUserLocation) })
+            var anns: [MKAnnotation] = pins.map { IncidentAnnotation(incident: $0.incident, coordinate: $0.coordinate) }
+            anns += cameras.map { CameraAnnotation(camera: $0) }
+            mv.addAnnotations(anns)
+        }
+
+        func syncHeat(_ mv: MKMapView, show: Bool, points: [CLLocationCoordinate2D]) {
+            let want = show ? points.count : -1
+            guard want != heatKey else { return }
+            heatKey = want
+            if let h = heat { mv.removeOverlay(h); heat = nil }
+            guard show, !points.isEmpty else { return }
+            let h = HeatOverlay(points: points)
+            mv.addOverlay(h, level: .aboveRoads)
+            heat = h
+        }
+
+        func mapView(_ mv: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            if let h = overlay as? HeatOverlay { return HeatOverlayRenderer(overlay: h) }
+            return MKOverlayRenderer(overlay: overlay)
+        }
+
+        func mapView(_ mv: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            if annotation is MKUserLocation { return nil }
+            if let ia = annotation as? IncidentAnnotation {
+                let v = mv.dequeueReusableAnnotationView(withIdentifier: "inc")
+                    ?? MKAnnotationView(annotation: ia, reuseIdentifier: "inc")
+                v.annotation = ia
+                v.image = incidentPinImage(for: ia.incident)
+                v.canShowCallout = false
+                return v
+            }
+            if let ca = annotation as? CameraAnnotation {
+                let v = mv.dequeueReusableAnnotationView(withIdentifier: "cam")
+                    ?? MKAnnotationView(annotation: ca, reuseIdentifier: "cam")
+                v.annotation = ca
+                v.image = cameraPinImage()
+                v.canShowCallout = true
+                return v
+            }
+            return nil
+        }
+
+        func mapView(_ mv: MKMapView, didSelect view: MKAnnotationView) {
+            guard let ia = view.annotation as? IncidentAnnotation else { return }
+            mv.deselectAnnotation(ia, animated: false)
+            parent.onSelect(ia.incident)
+        }
+    }
 }
 
 final class LocationFetcher: NSObject, ObservableObject, CLLocationManagerDelegate {
@@ -79,17 +280,14 @@ final class LocationFetcher: NSObject, ObservableObject, CLLocationManagerDelega
 struct MapTabView: View {
     @EnvironmentObject var store: P25Store
     @StateObject private var locator = LocationFetcher()
-    @State private var region = MKCoordinateRegion(
-        center: kFallbackCenter,
-        span: MKCoordinateSpan(latitudeDelta: 0.12, longitudeDelta: 0.12)
-    )
     @State private var selectedIncident: Incident?
     @State private var detailIncident: Incident?
     @State private var mapFilter = "now"  // "critical" | "now" | "8hr" | "all"
+    @State private var showHeat = false
+    @State private var showALPR = false
+    @State private var recenter: CLLocationCoordinate2D?
 
     // Semantics match the web map's defaults: time-windowed on last_seen.
-    // now = 4h window (any status), critical = open P1-P2 within 4h,
-    // 8hr = 8h window, all = everything.
     var visibleIncidents: [Incident] {
         let h4 = Date().addingTimeInterval(-4 * 3600)
         let h8 = Date().addingTimeInterval(-8 * 3600)
@@ -104,8 +302,9 @@ struct MapTabView: View {
         }
     }
 
-    var pinItems: [MapPinItem] {
-        spreadCoincident(visibleIncidents).map { MapPinItem(incident: $0.incident, coordinate: $0.coordinate) }
+    // Heatmap = full-history density of precise points (independent of the pill filter).
+    var heatPoints: [CLLocationCoordinate2D] {
+        store.incidents.filter { !$0.approxLocation }.compactMap { $0.coordinate }
     }
 
     private func _seen(_ inc: Incident, since cutoff: Date) -> Bool {
@@ -127,36 +326,27 @@ struct MapTabView: View {
     }
 
     private func goToCurrentLocation() {
-        locator.requestLocation { coord in
-            withAnimation {
-                region = MKCoordinateRegion(
-                    center: coord ?? kFallbackCenter,
-                    span: MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08))
-            }
-        }
+        locator.requestLocation { coord in recenter = coord ?? kFallbackCenter }
     }
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            Map(coordinateRegion: $region, showsUserLocation: true, annotationItems: pinItems) { item in
-                MapAnnotation(coordinate: item.coordinate) {
-                    IncidentMapPin(incident: item.incident, isSelected: selectedIncident?.id == item.incident.id)
-                        .onTapGesture { selectedIncident = item.incident }
-                }
-            }
-            .ignoresSafeArea(edges: .top)
+            IncidentMapView(pins: spreadCoincident(visibleIncidents),
+                            cameras: store.alprCameras,
+                            showHeat: showHeat,
+                            heatPoints: heatPoints,
+                            showALPR: showALPR,
+                            recenter: $recenter,
+                            onSelect: { selectedIncident = $0 })
+                .ignoresSafeArea(edges: .top)
 
-            // Locate button — top right
             VStack {
                 HStack {
                     Spacer()
-                    Button(action: goToCurrentLocation) {
-                        Image(systemName: "location.fill")
-                            .font(.body.weight(.semibold))
-                            .padding(12)
-                            .background(.regularMaterial)
-                            .clipShape(Circle())
-                            .shadow(radius: 3)
+                    VStack(spacing: 10) {
+                        mapButton("location.fill", on: false) { goToCurrentLocation() }
+                        mapButton("flame.fill", on: showHeat) { showHeat.toggle() }
+                        mapButton("video.fill", on: showALPR) { showALPR.toggle() }
                     }
                     .padding(.trailing, 16)
                     .padding(.top, 8)
@@ -199,52 +389,17 @@ struct MapTabView: View {
             }
         }
     }
-}
 
-struct IncidentMapPin: View {
-    let incident: Incident
-    let isSelected: Bool
-
-    // Sizes match the web map: P1 dominates, P5 recedes
-    private var size: CGFloat {
-        let s: CGFloat = [1: 30, 2: 26, 3: 22, 4: 18, 5: 16][incident.priorityLevel] ?? 22
-        return isSelected ? s + 6 : s
-    }
-
-    private var stale: Bool { incident.stale }
-
-    // Dark variants match web _darkenHex(color, 0.68)
-    private var fill: Color {
-        if !stale { return incident.priorityColor }
-        switch incident.priorityLevel {
-        case 1: return Color(red: 0.45, green: 0.00, blue: 0.89) // #7400e2
-        case 2: return Color(red: 0.80, green: 0.01, blue: 0.01) // #cd0303
-        case 3: return Color(red: 0.65, green: 0.49, blue: 0.00) // #a57d00
-        case 4: return Color(red: 0.00, green: 0.45, blue: 0.66) // #0074a8
-        default: return Color(red: 0.18, green: 0.22, blue: 0.29) // #2f3949
+    private func mapButton(_ system: String, on: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: system)
+                .font(.body.weight(.semibold))
+                .frame(width: 44, height: 44)
+                .background(on ? Color.accentColor : Color(.secondarySystemBackground))
+                .foregroundColor(on ? .white : .primary)
+                .clipShape(Circle())
+                .shadow(radius: 3)
         }
-    }
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(fill)
-                .opacity(stale ? 0.85 : 1)
-            if stale {
-                Circle()
-                    .stroke(style: StrokeStyle(lineWidth: 2, dash: [3, 2]))
-                    .foregroundColor(Color(red: 0.61, green: 0.64, blue: 0.69)) // #9ca3af
-            } else {
-                Circle()
-                    .stroke(Color.white, lineWidth: 2)
-            }
-            Text("\(incident.priorityLevel)")
-                .font(.system(size: size * 0.48, weight: .heavy))
-                .foregroundColor(stale ? Color(red: 0.61, green: 0.64, blue: 0.69) : .white)
-        }
-        .frame(width: size, height: size)
-        .shadow(radius: isSelected ? 6 : 2)
-        .animation(.spring(), value: isSelected)
     }
 }
 

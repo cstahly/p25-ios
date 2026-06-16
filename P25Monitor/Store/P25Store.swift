@@ -10,6 +10,7 @@ class P25Store: ObservableObject {
     static let shared = P25Store()
 
     @Published var incidents: [Incident] = []
+    @Published var alprCameras: [ALPRCamera] = []
     @Published var recentTX: [TXEvent] = []
     @Published var audioFilter: String = "all"
     @Published var isStreaming = false
@@ -26,6 +27,7 @@ class P25Store: ObservableObject {
         guard streamTask == nil else { return }
         Task { await refresh() }
         Task { await backfillTX() }
+        Task { await loadALPR() }
         startStreaming()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             Task { await self?.refresh() }
@@ -38,6 +40,14 @@ class P25Store: ObservableObject {
         guard recentTX.isEmpty else { return }
         if let rows = try? await P25Client.shared.fetchTransmissions(limit: 50) {
             if recentTX.isEmpty { recentTX = rows }
+        }
+    }
+
+    /// ALPR (Flock) camera locations from DeFlock/OSM — static, loaded once.
+    func loadALPR() async {
+        guard alprCameras.isEmpty else { return }
+        if let cams = try? await P25Client.shared.fetchALPR() {
+            alprCameras = cams
         }
     }
 
