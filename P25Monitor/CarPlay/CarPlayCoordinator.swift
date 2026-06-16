@@ -11,10 +11,8 @@ class CarPlayCoordinator: NSObject {
     private var poiTemplate: CPPointOfInterestTemplate?
     private var listTemplate: CPListTemplate?
     private var logTemplate: CPListTemplate?
-    private var camerasTemplate: CPListTemplate?
     private var cancellables = Set<AnyCancellable>()
     private let locationManager = CLLocationManager()
-    private var currentLocation: CLLocation?
 
     init(interfaceController: CPInterfaceController) {
         self.interfaceController = interfaceController
@@ -48,14 +46,7 @@ class CarPlayCoordinator: NSObject {
         log.trailingNavigationBarButtons = [filterBtn]
         logTemplate = log
 
-        // ALPR cameras can't go on the POI map (12-POI cap, no overlay) — surface
-        // them as a nearest-first list instead.
-        let cams = CPListTemplate(title: "ALPR Cameras", sections: [])
-        cams.tabTitle = "Cameras"
-        cams.tabImage = UIImage(systemName: "video.fill")
-        camerasTemplate = cams
-
-        let tabs = CPTabBarTemplate(templates: [poi, lt, log, cams])
+        let tabs = CPTabBarTemplate(templates: [poi, lt, log])
         tabBarTemplate = tabs
         interfaceController.setRootTemplate(tabs, animated: false) { _, _ in }
 
@@ -72,13 +63,6 @@ class CarPlayCoordinator: NSObject {
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] txList in
                     self?.updateLog(txList: txList)
-                }
-                .store(in: &cancellables)
-
-            P25Store.shared.$alprCameras
-                .receive(on: DispatchQueue.main)
-                .sink { [weak self] cams in
-                    self?.updateCameras(cams)
                 }
                 .store(in: &cancellables)
 
@@ -338,44 +322,6 @@ class CarPlayCoordinator: NSObject {
         interfaceController.pushTemplate(tmpl, animated: true) { _, _ in }
     }
 
-    // MARK: - ALPR cameras (nearest-first list; the POI map can't overlay them)
-
-    @MainActor
-    private func updateCameras(_ cameras: [ALPRCamera]) {
-        let here = currentLocation
-        let sorted: [ALPRCamera]
-        if let here {
-            sorted = cameras.sorted {
-                CLLocation(latitude: $0.lat, longitude: $0.lng).distance(from: here)
-                    < CLLocation(latitude: $1.lat, longitude: $1.lng).distance(from: here)
-            }
-        } else {
-            sorted = cameras
-        }
-        let items: [CPListItem] = sorted.prefix(40).map { cam in
-            var bits: [String] = []
-            if let here {
-                let meters = CLLocation(latitude: cam.lat, longitude: cam.lng).distance(from: here)
-                bits.append(String(format: "%.1f mi", meters * 0.000621371))
-            }
-            if let d = cam.dir { bits.append("faces \(Self.cardinal(d))") }
-            if let z = cam.zone, !z.isEmpty { bits.append(z) }
-            return CPListItem(text: "\(cam.operatorName) camera",
-                              detailText: bits.isEmpty ? nil : bits.joined(separator: " · "))
-        }
-        let header = here == nil ? "\(cameras.count) cameras" : "Nearest of \(cameras.count)"
-        camerasTemplate?.updateSections([
-            CPListSection(items: items.isEmpty ? [CPListItem(text: "No cameras", detailText: nil)] : items,
-                          header: header, sectionIndexTitle: nil)
-        ])
-    }
-
-    private static func cardinal(_ deg: Double) -> String {
-        let dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
-        let n = (deg.truncatingRemainder(dividingBy: 360) + 360).truncatingRemainder(dividingBy: 360)
-        return dirs[Int((n + 22.5) / 45) % 8]
-    }
-
     // MARK: - Now Playing
 
     @MainActor static func syncNowPlaying() {
@@ -416,11 +362,5 @@ extension CarPlayCoordinator: CLLocationManagerDelegate {
         default:
             break
         }
-    }
-
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let loc = locations.last else { return }
-        currentLocation = loc
-        Task { @MainActor in self.updateCameras(P25Store.shared.alprCameras) }
     }
 }
