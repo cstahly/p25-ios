@@ -72,16 +72,35 @@ func incidentPinImage(for inc: Incident) -> UIImage {
     }
 }
 
-func cameraPinImage() -> UIImage {
-    let size: CGFloat = 14
+func cameraPinImage(dir: Double?) -> UIImage {
+    let size: CGFloat = 22
+    let red = UIColor(red: 0.86, green: 0.15, blue: 0.15, alpha: 1)
     let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
     return renderer.image { ctx in
-        let rect = CGRect(x: 1, y: 1, width: size - 2, height: size - 2)
-        UIColor(red: 0.86, green: 0.15, blue: 0.15, alpha: 1).setFill()
-        ctx.cgContext.fillEllipse(in: rect)
+        let c = ctx.cgContext
+        let center = CGPoint(x: size / 2, y: size / 2)
+        // Facing-direction arrow (north-up triangle rotated clockwise by bearing).
+        if let dir {
+            c.saveGState()
+            c.translateBy(x: center.x, y: center.y)
+            c.rotate(by: CGFloat(dir) * .pi / 180)
+            red.setFill()
+            let tri = UIBezierPath()
+            tri.move(to: CGPoint(x: 0, y: -size / 2 + 1))
+            tri.addLine(to: CGPoint(x: -4, y: -2))
+            tri.addLine(to: CGPoint(x: 4, y: -2))
+            tri.close()
+            tri.fill()
+            c.restoreGState()
+        }
+        // Camera dot
+        let r: CGFloat = 5
+        let dot = CGRect(x: center.x - r, y: center.y - r, width: r * 2, height: r * 2)
+        red.setFill()
+        c.fillEllipse(in: dot)
         UIColor.white.setStroke()
-        ctx.cgContext.setLineWidth(2)
-        ctx.cgContext.strokeEllipse(in: rect)
+        c.setLineWidth(2)
+        c.strokeEllipse(in: dot)
     }
 }
 
@@ -225,7 +244,7 @@ struct IncidentMapView: UIViewRepresentable {
                 let v = mv.dequeueReusableAnnotationView(withIdentifier: "cam")
                     ?? MKAnnotationView(annotation: ca, reuseIdentifier: "cam")
                 v.annotation = ca
-                v.image = cameraPinImage()
+                v.image = cameraPinImage(dir: ca.camera.dir)
                 v.canShowCallout = true
                 return v
             }
@@ -279,6 +298,7 @@ final class LocationFetcher: NSObject, ObservableObject, CLLocationManagerDelega
 
 struct MapTabView: View {
     @EnvironmentObject var store: P25Store
+    @EnvironmentObject var audio: P25AudioPlayer
     @StateObject private var locator = LocationFetcher()
     @State private var selectedIncident: Incident?
     @State private var detailIncident: Incident?
@@ -387,6 +407,15 @@ struct MapTabView: View {
                         }
                     }
             }
+            .environmentObject(store)
+            .environmentObject(audio)
+        }
+        .onChange(of: store.mapFocus) { _, foc in
+            // Jump here from an incident elsewhere: recenter + open its callout.
+            guard let foc, let c = foc.coordinate else { return }
+            recenter = c
+            selectedIncident = foc
+            store.mapFocus = nil
         }
     }
 

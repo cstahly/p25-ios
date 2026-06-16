@@ -5,6 +5,9 @@ struct IncidentDetailView: View {
     @State private var transmissions: [TXEvent] = []
     @State private var loadingTX = false
     @Environment(\.openURL) private var openURL
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var store: P25Store
+    @EnvironmentObject var audio: P25AudioPlayer
 
     var statusColor: Color {
         switch incident.statusKind {
@@ -55,6 +58,19 @@ struct IncidentDetailView: View {
                 }
             }
 
+            // Jump to the map tab, centered on this incident
+            if incident.coordinate != nil {
+                Section {
+                    Button {
+                        store.mapFocus = incident
+                        store.selectedTab = 0
+                        dismiss()
+                    } label: {
+                        Label("Show on Map", systemImage: "map")
+                    }
+                }
+            }
+
             // Details
             if let details = incident.details, !details.isEmpty {
                 Section("Details") {
@@ -83,27 +99,43 @@ struct IncidentDetailView: View {
                             .font(.subheadline)
                     } else {
                         ForEach(transmissions) { tx in
-                            VStack(alignment: .leading, spacing: 3) {
-                                HStack(spacing: 6) {
-                                    Text(tx.talkgroup ?? "Unknown")
-                                        .font(.caption.weight(.semibold))
-                                    if let trunk = tx.trunk {
-                                        Text(trunk == "tippecanoe" ? "TC" : "ST")
+                            HStack(alignment: .center, spacing: 8) {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    HStack(spacing: 6) {
+                                        Text(tx.talkgroup ?? "Unknown")
+                                            .font(.caption.weight(.semibold))
+                                        if let trunk = tx.trunk {
+                                            Text(trunk == "tippecanoe" ? "TC" : "ST")
+                                                .font(.caption2)
+                                                .padding(.horizontal, 5).padding(.vertical, 1)
+                                                .background(trunk == "tippecanoe" ? Color.blue.opacity(0.15) : Color.purple.opacity(0.15))
+                                                .foregroundColor(trunk == "tippecanoe" ? .blue : .purple)
+                                                .clipShape(Capsule())
+                                        }
+                                        Spacer()
+                                        Text(tx.time ?? "")
                                             .font(.caption2)
-                                            .padding(.horizontal, 5).padding(.vertical, 1)
-                                            .background(trunk == "tippecanoe" ? Color.blue.opacity(0.15) : Color.purple.opacity(0.15))
-                                            .foregroundColor(trunk == "tippecanoe" ? .blue : .purple)
-                                            .clipShape(Capsule())
+                                            .foregroundColor(.secondary)
                                     }
-                                    Spacer()
-                                    Text(tx.time ?? "")
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
+                                    if let text = tx.text, !text.isEmpty {
+                                        Text(text)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
                                 }
-                                if let text = tx.text, !text.isEmpty {
-                                    Text(text)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                                if let wav = tx.wavFile, !wav.isEmpty {
+                                    let playing = audio.isPlayingClip && audio.currentClipFile == wav
+                                    Button {
+                                        Task {
+                                            if playing { audio.stopClip() }
+                                            else { await audio.playClip(wav) }
+                                        }
+                                    } label: {
+                                        Image(systemName: playing ? "stop.circle.fill" : "play.circle.fill")
+                                            .font(.title3)
+                                            .foregroundColor(.accentColor)
+                                    }
+                                    .buttonStyle(.plain)
                                 }
                             }
                             .padding(.vertical, 2)

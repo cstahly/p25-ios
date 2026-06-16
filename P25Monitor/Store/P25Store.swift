@@ -13,6 +13,8 @@ class P25Store: ObservableObject {
     @Published var alprCameras: [ALPRCamera] = []
     @Published var recentTX: [TXEvent] = []
     @Published var audioFilter: String = "all"
+    @Published var selectedTab: Int = 0          // drives ContentView's TabView
+    @Published var mapFocus: Incident?           // set to jump the Map tab to an incident
     @Published var isStreaming = false
     @Published var lastError: String?
 
