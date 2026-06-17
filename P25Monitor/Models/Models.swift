@@ -31,6 +31,17 @@ struct Incident: Identifiable, Codable, Equatable {
 
     var priorityLevel: Int { priority ?? 3 }
 
+    /// Colored dot matching the map pin colors (purple/red/yellow/blue/gray).
+    var priorityDot: String {
+        switch priorityLevel {
+        case 1:  return "🟣"
+        case 2:  return "🔴"
+        case 3:  return "🟡"
+        case 4:  return "🔵"
+        default: return "⚪"
+        }
+    }
+
     var priorityLabel: String {
         switch priorityLevel {
         case 1: return "1 — Critical"

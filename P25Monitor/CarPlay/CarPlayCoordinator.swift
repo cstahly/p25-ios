@@ -102,14 +102,14 @@ class CarPlayCoordinator: NSObject {
             let coord = pair.coordinate
             let label = "\(idx + 1)"
             let loc = MKMapItem(placemark: MKPlacemark(coordinate: coord))
-            loc.name = "\(label). \(inc.statusEmoji) \(inc.title)"
+            loc.name = "\(label). \(inc.priorityDot) \(inc.title)"
 
             let poi = CPPointOfInterest(
                 location: loc,
-                title: "\(label). \(inc.statusEmoji) \(inc.title)",
+                title: "\(label). \(inc.priorityDot) \(inc.title)",
                 subtitle: "P\(inc.priorityLevel) · \(inc.agency)",
                 summary: inc.location.isEmpty ? nil : inc.location,
-                detailTitle: "\(inc.statusEmoji) \(inc.title)",
+                detailTitle: "\(inc.priorityDot) \(inc.title)",
                 detailSubtitle: "\(inc.agency) · \(inc.age)",
                 detailSummary: [inc.action, inc.details?.first]
                     .compactMap { $0 }.filter { !$0.isEmpty }.first,
