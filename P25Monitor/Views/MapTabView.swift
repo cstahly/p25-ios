@@ -328,9 +328,10 @@ struct MapTabView: View {
         }
     }
 
-    // Heatmap = full-history density of precise points (independent of the pill filter).
+    // Heatmap = full-history density of precise points (loaded on demand so the
+    // normal poll stays light).
     var heatPoints: [CLLocationCoordinate2D] {
-        store.incidents.filter { !$0.approxLocation }.compactMap { $0.coordinate }
+        store.heatIncidents.filter { !$0.approxLocation }.compactMap { $0.coordinate }
     }
 
     private func _seen(_ inc: Incident, since cutoff: Date) -> Bool {
@@ -422,6 +423,9 @@ struct MapTabView: View {
             recenter = c
             selectedIncident = foc
             store.mapFocus = nil
+        }
+        .onChange(of: showHeat) { on in
+            if on { Task { await store.loadHeatData() } }   // fetch full history only when needed
         }
     }
 

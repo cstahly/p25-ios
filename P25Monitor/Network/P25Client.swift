@@ -41,10 +41,10 @@ class P25Client {
 
     // MARK: - API calls
 
-    func fetchState() async throws -> StateResponse {
-        // scope=all: the app shows full history (All filter) + feeds the map heatmap.
-        // The server defaults to a light 24h window; we explicitly opt into everything.
-        let (data, _) = try await URLSession.shared.data(for: req("/api/state?scope=all"))
+    // Default to the light 24h window for fast load/poll; pass scope="all" only
+    // when something (the heatmap) genuinely needs full history.
+    func fetchState(scope: String = "window") async throws -> StateResponse {
+        let (data, _) = try await URLSession.shared.data(for: req("/api/state?scope=\(scope)"))
         return try JSONDecoder().decode(StateResponse.self, from: data)
     }
 

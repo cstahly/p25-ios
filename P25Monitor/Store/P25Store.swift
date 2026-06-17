@@ -10,6 +10,7 @@ class P25Store: ObservableObject {
     static let shared = P25Store()
 
     @Published var incidents: [Incident] = []
+    @Published var heatIncidents: [Incident] = []   // full history, loaded on demand for the heatmap
     @Published var alprCameras: [ALPRCamera] = []
     @Published var recentTX: [TXEvent] = []
     @Published var audioFilter: String = "all"
@@ -42,6 +43,14 @@ class P25Store: ObservableObject {
         guard recentTX.isEmpty else { return }
         if let rows = try? await P25Client.shared.fetchTransmissions(limit: 50) {
             if recentTX.isEmpty { recentTX = rows }
+        }
+    }
+
+    /// Full-history incidents for the heatmap (precise points), fetched on demand
+    /// when the heatmap is toggled on — keeps the normal poll light/fast.
+    func loadHeatData() async {
+        if let r = try? await P25Client.shared.fetchState(scope: "all") {
+            heatIncidents = r.incidents
         }
     }
 
