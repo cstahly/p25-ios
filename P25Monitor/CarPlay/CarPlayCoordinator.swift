@@ -119,6 +119,17 @@ class CarPlayCoordinator: NSObject {
                 pinImage: pinImage(for: inc, label: label)
             )
             poi.userInfo = inc
+            // Button on the forced selection card: dismiss the card and open the
+            // full detail (status, radio traffic, etc.).
+            poi.primaryButton = CPTextButton(title: "Details", textStyle: .normal) { [weak self] _ in
+                Task { @MainActor in
+                    guard let self else { return }
+                    if let t = self.poiTemplate {
+                        t.setPointsOfInterest(t.pointsOfInterest, selectedIndex: NSNotFound)
+                    }
+                    self.pushIncidentDetail(inc)
+                }
+            }
             return poi
         }
         mapPinIndex = idxMap
