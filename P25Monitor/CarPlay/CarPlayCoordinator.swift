@@ -13,6 +13,7 @@ class CarPlayCoordinator: NSObject {
     private var logTemplate: CPListTemplate?
     private var cancellables = Set<AnyCancellable>()
     private let locationManager = CLLocationManager()
+    private var mapPinIndex: [Int: Int] = [:]   // incident number -> its numbered pin on the map
 
     init(interfaceController: CPInterfaceController) {
         self.interfaceController = interfaceController
@@ -20,6 +21,7 @@ class CarPlayCoordinator: NSObject {
 
     @MainActor
     func setup() {
+        interfaceController.delegate = self
         locationManager.delegate = self
         if locationManager.authorizationStatus == .notDetermined {
             locationManager.requestWhenInUseAuthorization()
@@ -97,10 +99,12 @@ class CarPlayCoordinator: NSObject {
         }
         // Number pins and list rows the same so you can match a map pin to its row
         // (pin "3" == row "3.") — the list and map share this POI array order.
+        var idxMap: [Int: Int] = [:]
         let pois: [CPPointOfInterest] = placed.enumerated().map { idx, pair in
             let inc = pair.incident
             let coord = pair.coordinate
             let label = "\(idx + 1)"
+            idxMap[inc.number] = idx + 1
             let loc = MKMapItem(placemark: MKPlacemark(coordinate: coord))
             loc.name = "\(label). \(inc.priorityDot) \(inc.title)"
 
@@ -118,6 +122,7 @@ class CarPlayCoordinator: NSObject {
             poi.userInfo = inc
             return poi
         }
+        mapPinIndex = idxMap
         poiTemplate?.setPointsOfInterest(pois, selectedIndex: NSNotFound)
     }
 
@@ -201,10 +206,15 @@ class CarPlayCoordinator: NSObject {
     @MainActor
     private func pushIncidentDetail(_ incident: Incident) {
         var rows: [CPInformationItem] = [
-            CPInformationItem(title: "Status",   detail: "\(incident.statusEmoji) \(incident.status)"),
+            CPInformationItem(title: "Status",   detail: "\(incident.priorityDot) \(incident.status)"),
             CPInformationItem(title: "Priority", detail: incident.priorityLabel),
             CPInformationItem(title: "Agency",   detail: incident.agency),
         ]
+        // Tell the driver which numbered pin this is, since the POI map can't
+        // zoom/center programmatically (Apple template limitation).
+        if let pin = mapPinIndex[incident.number] {
+            rows.append(CPInformationItem(title: "Map pin", detail: "#\(pin)"))
+        }
         if !incident.location.isEmpty {
             rows.append(CPInformationItem(title: "Location", detail: incident.location))
         }
@@ -221,38 +231,26 @@ class CarPlayCoordinator: NSObject {
             rows.append(CPInformationItem(title: nil, detail: detail))
         }
 
-        var actions: [CPTextButton] = []
-        if incident.coordinate != nil {
-            actions.append(CPTextButton(title: "Show on Map", textStyle: .normal) { [weak self] _ in
-                self?.focusMapOnIncident(incident)
-            })
-        }
-
         let tmpl = CPInformationTemplate(
             title: "#\(incident.number) \(incident.title)",
             layout: .twoColumn,
             items: rows,
-            actions: actions
+            actions: []
         )
         interfaceController.pushTemplate(tmpl, animated: true) { _, _ in }
-    }
 
-    @MainActor
-    private func focusMapOnIncident(_ incident: Incident) {
-        guard incident.coordinate != nil else { return }
-        // Pop the detail template first, then switch the tab bar to the Map
-        // tab and select the POI — selection before the pop was being lost.
-        interfaceController.popToRootTemplate(animated: false) { [weak self] _, _ in
+        // Append the incident's radio traffic once it loads (the "chat").
+        if let from = incident.firstTxId, let to = incident.lastTxId, from > 0 {
             Task { @MainActor in
-                guard let self, let poi = self.poiTemplate else { return }
-                if #available(iOS 17.0, *) {
-                    self.tabBarTemplate?.select(poi)
+                guard let txs = try? await P25Client.shared.fetchTransmissions(limit: 100, fromId: from, toId: to),
+                      !txs.isEmpty else { return }
+                var updated = rows
+                updated.append(CPInformationItem(title: "— Radio Traffic —", detail: nil))
+                for tx in txs.prefix(12) {
+                    let body = (tx.text ?? "").isEmpty ? (tx.talkgroup ?? "Unknown") : (tx.text ?? "")
+                    updated.append(CPInformationItem(title: tx.time ?? "", detail: body))
                 }
-                if let idx = poi.pointsOfInterest.firstIndex(where: {
-                    ($0.userInfo as? Incident)?.number == incident.number
-                }) {
-                    poi.setPointsOfInterest(poi.pointsOfInterest, selectedIndex: idx)
-                }
+                tmpl.items = updated
             }
         }
     }
@@ -360,6 +358,19 @@ extension CarPlayCoordinator: CPPointOfInterestTemplateDelegate {
                                  didSelectPointOfInterest pointOfInterest: CPPointOfInterest) {
         guard let incident = pointOfInterest.userInfo as? Incident else { return }
         Task { @MainActor in pushIncidentDetail(incident) }
+    }
+}
+
+// MARK: - CPInterfaceControllerDelegate
+
+extension CarPlayCoordinator: CPInterfaceControllerDelegate {
+    // When the map reappears (e.g. after backing out of an incident detail),
+    // clear any leftover POI selection so the full list shows again instead of
+    // collapsing to the one selected incident.
+    func templateDidAppear(_ aTemplate: CPTemplate, animated: Bool) {
+        guard aTemplate === poiTemplate, let poi = poiTemplate,
+              poi.selectedIndex != NSNotFound else { return }
+        poi.setPointsOfInterest(poi.pointsOfInterest, selectedIndex: NSNotFound)
     }
 }
 
