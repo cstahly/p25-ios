@@ -13,7 +13,6 @@ class CarPlayCoordinator: NSObject {
     private var logTemplate: CPListTemplate?
     private var cancellables = Set<AnyCancellable>()
     private let locationManager = CLLocationManager()
-    private var mapPinIndex: [Int: Int] = [:]   // incident number -> its numbered pin on the map
 
     init(interfaceController: CPInterfaceController) {
         self.interfaceController = interfaceController
@@ -96,33 +95,25 @@ class CarPlayCoordinator: NSObject {
             if p0 != p1 { return p0 < p1 }
             return $0.incident.number > $1.incident.number
         }
-        // Number pins and list rows the same so you can match a map pin to its row
-        // (pin "3" == row "3.") — the list and map share this POI array order.
-        var idxMap: [Int: Int] = [:]
-        let pois: [CPPointOfInterest] = placed.enumerated().map { idx, pair in
-            let inc = pair.incident
-            let coord = pair.coordinate
-            let label = "\(idx + 1)"
-            idxMap[inc.number] = idx + 1
+        let pois: [CPPointOfInterest] = placed.map { inc, coord in
             let loc = MKMapItem(placemark: MKPlacemark(coordinate: coord))
-            loc.name = "\(label). \(inc.priorityDot) \(inc.title)"
+            loc.name = "\(inc.priorityDot) \(inc.title)"
 
             let poi = CPPointOfInterest(
                 location: loc,
-                title: "\(label). \(inc.priorityDot) \(inc.title)",
+                title: "\(inc.priorityDot) \(inc.title)",
                 subtitle: "P\(inc.priorityLevel) · \(inc.agency)",
                 summary: inc.location.isEmpty ? nil : inc.location,
                 detailTitle: "\(inc.priorityDot) \(inc.title)",
                 detailSubtitle: "P\(inc.priorityLevel) · \(inc.agency) · \(inc.age)",
                 detailSummary: [inc.location.isEmpty ? nil : inc.location, inc.action, inc.details?.first]
                     .compactMap { $0 }.filter { !$0.isEmpty }.first,
-                pinImage: pinImage(for: inc, label: label)
+                pinImage: pinImage(for: inc)
             )
             poi.userInfo = inc
             // Button on the forced selection card: dismiss the card and open the
             // full detail (status, radio traffic, etc.).
             poi.primaryButton = CPTextButton(title: "Details", textStyle: .normal) { [weak self] _ in
-                NSLog("[CarPlay] Details button tapped #\(inc.number)")
                 Task { @MainActor in
                     guard let self else { return }
                     if let t = self.poiTemplate {
@@ -133,14 +124,11 @@ class CarPlayCoordinator: NSObject {
             }
             return poi
         }
-        NSLog("[CarPlay] updatePOI set \(pois.count) POIs, each with a Details primaryButton")
-        mapPinIndex = idxMap
         poiTemplate?.setPointsOfInterest(pois, selectedIndex: NSNotFound)
     }
 
-    /// Circle colored+sized by priority, labeled with the POI's list number so a
-    /// pin can be matched to its row in the list.
-    private func pinImage(for inc: Incident, label: String) -> UIImage? {
+    /// Numbered circle sized+colored by priority — matches the web/iOS map pins.
+    private func pinImage(for inc: Incident) -> UIImage? {
         let prio = inc.priorityLevel
         let stale = inc.stale
         let live: [Int: UIColor] = [
@@ -170,8 +158,8 @@ class CarPlayCoordinator: NSObject {
             ctx.cgContext.setLineWidth(2)
             if stale { ctx.cgContext.setLineDash(phase: 0, lengths: [3, 2]) }
             ctx.cgContext.strokeEllipse(in: rect)
-            let text = label as NSString
-            let font = UIFont.systemFont(ofSize: size * (label.count > 1 ? 0.40 : 0.50), weight: .heavy)
+            let text = "\(prio)" as NSString
+            let font = UIFont.systemFont(ofSize: size * 0.48, weight: .heavy)
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: font, .foregroundColor: stale ? gray : UIColor.white]
             let ts = text.size(withAttributes: attrs)
@@ -222,11 +210,6 @@ class CarPlayCoordinator: NSObject {
             CPInformationItem(title: "Priority", detail: incident.priorityLabel),
             CPInformationItem(title: "Agency",   detail: incident.agency),
         ]
-        // Tell the driver which numbered pin this is, since the POI map can't
-        // zoom/center programmatically (Apple template limitation).
-        if let pin = mapPinIndex[incident.number] {
-            rows.append(CPInformationItem(title: "Map pin", detail: "#\(pin)"))
-        }
         if !incident.location.isEmpty {
             rows.append(CPInformationItem(title: "Location", detail: incident.location))
         }
@@ -368,7 +351,6 @@ extension CarPlayCoordinator: CPPointOfInterestTemplateDelegate {
 
     func pointOfInterestTemplate(_ pointOfInterestTemplate: CPPointOfInterestTemplate,
                                  didSelectPointOfInterest pointOfInterest: CPPointOfInterest) {
-        NSLog("[CarPlay] didSelectPointOfInterest #\((pointOfInterest.userInfo as? Incident)?.number ?? -1)")
         // Deliberately no push. Selecting a POI already shows the template's own
         // info card; pushing a second detail on top caused the double-popup (card
         // left underneath, needing an X). The card is the map's quick view; the
