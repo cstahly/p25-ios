@@ -122,6 +122,7 @@ class CarPlayCoordinator: NSObject {
             // Button on the forced selection card: dismiss the card and open the
             // full detail (status, radio traffic, etc.).
             poi.primaryButton = CPTextButton(title: "Details", textStyle: .normal) { [weak self] _ in
+                NSLog("[CarPlay] Details button tapped #\(inc.number)")
                 Task { @MainActor in
                     guard let self else { return }
                     if let t = self.poiTemplate {
@@ -132,6 +133,7 @@ class CarPlayCoordinator: NSObject {
             }
             return poi
         }
+        NSLog("[CarPlay] updatePOI set \(pois.count) POIs, each with a Details primaryButton")
         mapPinIndex = idxMap
         poiTemplate?.setPointsOfInterest(pois, selectedIndex: NSNotFound)
     }
@@ -366,6 +368,7 @@ extension CarPlayCoordinator: CPPointOfInterestTemplateDelegate {
 
     func pointOfInterestTemplate(_ pointOfInterestTemplate: CPPointOfInterestTemplate,
                                  didSelectPointOfInterest pointOfInterest: CPPointOfInterest) {
+        NSLog("[CarPlay] didSelectPointOfInterest #\((pointOfInterest.userInfo as? Incident)?.number ?? -1)")
         // Deliberately no push. Selecting a POI already shows the template's own
         // info card; pushing a second detail on top caused the double-popup (card
         // left underneath, needing an X). The card is the map's quick view; the
