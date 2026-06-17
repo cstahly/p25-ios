@@ -113,8 +113,8 @@ class CarPlayCoordinator: NSObject {
                 subtitle: "P\(inc.priorityLevel) · \(inc.agency)",
                 summary: inc.location.isEmpty ? nil : inc.location,
                 detailTitle: "\(inc.priorityDot) \(inc.title)",
-                detailSubtitle: "\(inc.agency) · \(inc.age)",
-                detailSummary: [inc.action, inc.details?.first]
+                detailSubtitle: "P\(inc.priorityLevel) · \(inc.agency) · \(inc.age)",
+                detailSummary: [inc.location.isEmpty ? nil : inc.location, inc.action, inc.details?.first]
                     .compactMap { $0 }.filter { !$0.isEmpty }.first,
                 pinImage: pinImage(for: inc, label: label)
             )
@@ -355,13 +355,10 @@ extension CarPlayCoordinator: CPPointOfInterestTemplateDelegate {
 
     func pointOfInterestTemplate(_ pointOfInterestTemplate: CPPointOfInterestTemplate,
                                  didSelectPointOfInterest pointOfInterest: CPPointOfInterest) {
-        guard let incident = pointOfInterest.userInfo as? Incident else { return }
-        // The tap already selected (collapsing the list to) this POI. Undo that
-        // immediately so the only persistent action is pushing the detail — then
-        // backing out lands on the full list, not the collapsed single-POI view.
-        pointOfInterestTemplate.setPointsOfInterest(pointOfInterestTemplate.pointsOfInterest,
-                                                    selectedIndex: NSNotFound)
-        Task { @MainActor in pushIncidentDetail(incident) }
+        // Deliberately no push. Selecting a POI already shows the template's own
+        // info card; pushing a second detail on top caused the double-popup (card
+        // left underneath, needing an X). The card is the map's quick view; the
+        // full detail + radio traffic lives in the Incidents tab.
     }
 }
 
