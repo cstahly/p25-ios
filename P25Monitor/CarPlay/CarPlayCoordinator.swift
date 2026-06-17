@@ -187,7 +187,9 @@ class CarPlayCoordinator: NSObject {
                               inc.location.isEmpty ? nil : inc.location,
                               inc.age.isEmpty      ? nil : inc.age]
                     .compactMap { $0 }.joined(separator: " · ")
-                let item = CPListItem(text: "P\(inc.priorityLevel) \(inc.statusEmoji) \(inc.title)", detailText: detail)
+                // Priority-colored dot for active rows; keep cleared rows' existing look.
+                let dot = inc.statusKind == "clear" ? inc.statusEmoji : inc.priorityDot
+                let item = CPListItem(text: "P\(inc.priorityLevel) \(dot) \(inc.title)", detailText: detail)
                 item.handler = { [weak self] _, completion in
                     self?.pushIncidentDetail(inc)
                     completion()
