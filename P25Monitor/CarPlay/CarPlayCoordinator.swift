@@ -21,7 +21,6 @@ class CarPlayCoordinator: NSObject {
 
     @MainActor
     func setup() {
-        interfaceController.delegate = self
         locationManager.delegate = self
         if locationManager.authorizationStatus == .notDetermined {
             locationManager.requestWhenInUseAuthorization()
@@ -357,20 +356,12 @@ extension CarPlayCoordinator: CPPointOfInterestTemplateDelegate {
     func pointOfInterestTemplate(_ pointOfInterestTemplate: CPPointOfInterestTemplate,
                                  didSelectPointOfInterest pointOfInterest: CPPointOfInterest) {
         guard let incident = pointOfInterest.userInfo as? Incident else { return }
+        // The tap already selected (collapsing the list to) this POI. Undo that
+        // immediately so the only persistent action is pushing the detail — then
+        // backing out lands on the full list, not the collapsed single-POI view.
+        pointOfInterestTemplate.setPointsOfInterest(pointOfInterestTemplate.pointsOfInterest,
+                                                    selectedIndex: NSNotFound)
         Task { @MainActor in pushIncidentDetail(incident) }
-    }
-}
-
-// MARK: - CPInterfaceControllerDelegate
-
-extension CarPlayCoordinator: CPInterfaceControllerDelegate {
-    // When the map reappears (e.g. after backing out of an incident detail),
-    // clear any leftover POI selection so the full list shows again instead of
-    // collapsing to the one selected incident.
-    func templateDidAppear(_ aTemplate: CPTemplate, animated: Bool) {
-        guard aTemplate === poiTemplate, let poi = poiTemplate,
-              poi.selectedIndex != NSNotFound else { return }
-        poi.setPointsOfInterest(poi.pointsOfInterest, selectedIndex: NSNotFound)
     }
 }
 
