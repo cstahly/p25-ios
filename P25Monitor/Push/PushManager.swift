@@ -39,6 +39,7 @@ final class PushManager: ObservableObject {
     @Published var authStatus: UNAuthorizationStatus = .notDetermined
     @Published var serverPushConfigured = false       // false until the .p8 lands server-side
     @Published var lastError: String?
+    @Published var registrationError: String?         // APNs didFailToRegister reason, if any
 
     private let tokenKey = "apnsDeviceTokenHex"
     var deviceToken: String? {
@@ -89,7 +90,20 @@ final class PushManager: ObservableObject {
     /// Called by AppDelegate once iOS hands us the APNs device token.
     func onAPNsToken(_ hex: String) {
         deviceToken = hex
+        registrationError = nil
         Task { await registerWithServer() }
+    }
+
+    /// Called by AppDelegate if APNs registration fails (e.g. missing push
+    /// entitlement in the provisioning profile).
+    func onAPNsFailure(_ message: String) {
+        registrationError = message
+    }
+
+    /// Re-trigger remote-notification registration (used by the retry button).
+    func retryRegistration() {
+        registrationError = nil
+        UIApplication.shared.registerForRemoteNotifications()
     }
 
     /// Register/refresh the token with the server. Sends prefs=nil so the server

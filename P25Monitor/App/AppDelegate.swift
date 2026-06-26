@@ -43,6 +43,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFailToRegisterForRemoteNotificationsWithError error: Error) {
         NSLog("[push] APNs registration failed: \(error.localizedDescription)")
+        Task { @MainActor in PushManager.shared.onAPNsFailure(error.localizedDescription) }
     }
 }
 

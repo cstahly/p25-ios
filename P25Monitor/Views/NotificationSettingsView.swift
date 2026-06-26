@@ -64,6 +64,23 @@ struct NotificationSettingsView: View {
 
     @ViewBuilder
     private var rulesSections: some View {
+        Section("Device") {
+            if push.deviceToken != nil {
+                Label("Registered for push", systemImage: "checkmark.seal.fill")
+                    .foregroundColor(.green)
+            } else {
+                Label("Waiting for a device token from Apple…", systemImage: "hourglass")
+                if let e = push.registrationError {
+                    Text(e).font(.footnote).foregroundColor(.red)
+                    Text("This usually means the build's provisioning profile is missing "
+                         + "the Push Notifications capability. Enable Push on the App ID, then "
+                         + "clean-build so Xcode regenerates the profile.")
+                        .font(.footnote).foregroundColor(.secondary)
+                }
+                Button("Retry registration") { push.retryRegistration() }
+            }
+        }
+
         Section {
             Toggle("Mute all notifications", isOn: $push.prefs.muted)
         } footer: {
