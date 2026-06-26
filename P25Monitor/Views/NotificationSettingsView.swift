@@ -54,7 +54,12 @@ struct NotificationSettingsView: View {
         }
         .navigationTitle("Notifications")
         .onAppear(perform: loadFromPrefs)
-        .task { await push.loadPrefs(); loadFromPrefs(); await push.refreshAuthStatus() }
+        .task {
+            await push.refreshAuthStatus()
+            await push.refreshServerStatus()   // accurate banner even before registration
+            await push.loadPrefs()
+            loadFromPrefs()
+        }
     }
 
     @ViewBuilder

@@ -55,6 +55,16 @@ class P25Client {
 
     // MARK: - Push notifications (device registration + prefs)
 
+    /// Whether the server has APNs credentials provisioned — readable without a
+    /// device token, so the Notifications screen can show accurate status before
+    /// the user has registered.
+    func fetchPushConfigured() async -> Bool {
+        struct Health: Decodable { let push_configured: Bool? }
+        guard let (data, _) = try? await URLSession.shared.data(for: req("/api/health")),
+              let h = try? JSONDecoder().decode(Health.self, from: data) else { return false }
+        return h.push_configured ?? false
+    }
+
     /// Register/refresh this device's APNs token with the server. Returns the
     /// prefs the server now has for it, plus whether APNs is configured server-side.
     @discardableResult

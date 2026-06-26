@@ -63,6 +63,11 @@ final class PushManager: ObservableObject {
         authStatus = settings.authorizationStatus
     }
 
+    /// Learn whether the server has APNs creds, independent of device registration.
+    func refreshServerStatus() async {
+        serverPushConfigured = await P25Client.shared.fetchPushConfigured()
+    }
+
     /// Ask for permission and, if granted, register for remote notifications.
     /// Returns true if authorized.
     @discardableResult
