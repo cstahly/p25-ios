@@ -137,4 +137,26 @@ class P25Store: ObservableObject {
         audioFilter = filter
         Task { try? await P25Client.shared.setAudioFilter(filter) }
     }
+
+    /// Distinct agency names from currently-loaded incidents — feeds the
+    /// notification agency allowlist picker.
+    var availableAgencies: [String] {
+        Array(Set(incidents.map(\.agency).filter { !$0.isEmpty })).sorted()
+    }
+
+    /// Jump the Map tab to an incident (used by a notification tap). If the
+    /// incident isn't in the current window, refresh once and try again.
+    func focusIncident(number: Int) {
+        selectedTab = 0
+        if let inc = incidents.first(where: { $0.number == number }) {
+            mapFocus = inc
+            return
+        }
+        Task {
+            await refresh()
+            if let inc = incidents.first(where: { $0.number == number }) {
+                mapFocus = inc
+            }
+        }
+    }
 }

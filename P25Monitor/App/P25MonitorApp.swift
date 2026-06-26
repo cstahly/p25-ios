@@ -9,6 +9,7 @@ struct P25MonitorApp: App {
             ContentView()
                 .environmentObject(P25Store.shared)
                 .environmentObject(P25AudioPlayer.shared)
+                .environmentObject(PushManager.shared)
         }
     }
 }

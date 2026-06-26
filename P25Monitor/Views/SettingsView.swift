@@ -34,6 +34,16 @@ struct SettingsView: View {
                     SecureField("Password", text: $password)
                 }
 
+                if !isOnboarding {
+                    Section("Alerts") {
+                        NavigationLink {
+                            NotificationSettingsView()
+                        } label: {
+                            Label("Notifications", systemImage: "bell.badge")
+                        }
+                    }
+                }
+
                 Section {
                     Button(isOnboarding ? "Connect" : "Save") {
                         P25Client.shared.baseURL  = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)

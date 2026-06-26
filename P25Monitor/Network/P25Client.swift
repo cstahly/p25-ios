@@ -53,6 +53,44 @@ class P25Client {
         return try JSONDecoder().decode(ALPRResponse.self, from: data).cameras
     }
 
+    // MARK: - Push notifications (device registration + prefs)
+
+    /// Register/refresh this device's APNs token with the server. Returns the
+    /// prefs the server now has for it, plus whether APNs is configured server-side.
+    @discardableResult
+    func registerDevice(token: String, environment: String, prefs: NotifPrefs?) async throws -> DeviceRegisterResponse {
+        struct Body: Encodable { let token: String; let platform: String; let environment: String; let prefs: NotifPrefs? }
+        let body = try JSONEncoder().encode(Body(token: token, platform: "ios", environment: environment, prefs: prefs))
+        let (data, _) = try await URLSession.shared.data(for: req("/api/devices/register", method: "POST", body: body))
+        return try JSONDecoder().decode(DeviceRegisterResponse.self, from: data)
+    }
+
+    func fetchPrefs(token: String) async throws -> DeviceRegisterResponse {
+        let enc = token.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? token
+        let (data, _) = try await URLSession.shared.data(for: req("/api/devices/prefs?token=\(enc)"))
+        return try JSONDecoder().decode(DeviceRegisterResponse.self, from: data)
+    }
+
+    @discardableResult
+    func savePrefs(token: String, prefs: NotifPrefs) async throws -> NotifPrefs {
+        struct Body: Encodable { let token: String; let prefs: NotifPrefs }
+        let body = try JSONEncoder().encode(Body(token: token, prefs: prefs))
+        let (data, _) = try await URLSession.shared.data(for: req("/api/devices/prefs", method: "POST", body: body))
+        struct Resp: Decodable { let ok: Bool; let prefs: NotifPrefs }
+        return try JSONDecoder().decode(Resp.self, from: data).prefs
+    }
+
+    /// Ask the server to fire a test push to this device. Throws on non-2xx.
+    func sendTestPush(token: String) async throws {
+        struct Body: Encodable { let token: String }
+        let body = try JSONEncoder().encode(Body(token: token))
+        let (_, resp) = try await URLSession.shared.data(for: req("/api/devices/test", method: "POST", body: body))
+        if let http = resp as? HTTPURLResponse, http.statusCode >= 300 {
+            throw NSError(domain: "P25", code: http.statusCode,
+                          userInfo: [NSLocalizedDescriptionKey: "Server returned \(http.statusCode)"])
+        }
+    }
+
     func setAudioFilter(_ filter: String) async throws {
         let body = try JSONEncoder().encode(["filter": filter])
         _ = try await URLSession.shared.data(for: req("/api/audio-filter", method: "POST", body: body))
