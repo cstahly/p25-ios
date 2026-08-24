@@ -21,11 +21,37 @@ struct IncidentListView: View {
             Group {
                 if filtered.isEmpty {
                     VStack(spacing: 12) {
-                        Image(systemName: "antenna.radiowaves.left.and.right.slash")
+                        Image(systemName: store.lastError != nil
+                              ? "exclamationmark.triangle"
+                              : "antenna.radiowaves.left.and.right.slash")
                             .font(.system(size: 48))
                             .foregroundColor(.secondary)
-                        Text("No Incidents")
-                            .foregroundColor(.secondary)
+                        // Distinguish "genuinely no incidents" from "the fetch failed"
+                        // — otherwise a connection/auth error looks like an empty board.
+                        if let err = store.lastError {
+                            Text("Couldn't load incidents")
+                                .foregroundColor(.secondary)
+                            Text(err)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 32)
+                            Text("\(store.incidents.count) loaded · filter: \(statusFilter)")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            Button("Retry") { Task { await store.refresh() } }
+                                .buttonStyle(.bordered)
+                        } else if store.incidents.isEmpty {
+                            Text("No Incidents")
+                                .foregroundColor(.secondary)
+                        } else {
+                            // Incidents loaded, but the current filter hides them all.
+                            Text("No \(statusFilter) incidents")
+                                .foregroundColor(.secondary)
+                            Text("\(store.incidents.count) total · tap the filter to show all")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
