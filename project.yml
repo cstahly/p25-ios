@@ -23,7 +23,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sadbabyrabbit.P25Monitor
         SWIFT_VERSION: "5.9"
-        DEVELOPMENT_TEAM: ""          # fill in your Team ID
+        DEVELOPMENT_TEAM: "634QAM3ZHG" # so xcodegen doesn't wipe signing each regen
         INFOPLIST_FILE: P25Monitor/Info.plist
         CODE_SIGN_ENTITLEMENTS: P25Monitor/P25Monitor.entitlements
         IPHONEOS_DEPLOYMENT_TARGET: "16.0"
