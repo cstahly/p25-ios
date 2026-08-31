@@ -31,6 +31,8 @@ targets:
     info:
       path: P25Monitor/Info.plist
       properties:
+        CFBundleShortVersionString: "1.0"   # marketing version — bump for real releases
+        CFBundleVersion: "1"                 # build number — release.sh overwrites with a timestamp
         UILaunchScreen: {}
         NSLocationWhenInUseUsageDescription: "Shows your position on the incident map"
         UISupportedInterfaceOrientations:
