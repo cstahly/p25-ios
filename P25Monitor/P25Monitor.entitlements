@@ -4,7 +4,5 @@
 <dict>
     <key>com.apple.developer.carplay-driving-task</key>
     <true/>
-    <key>aps-environment</key>
-    <string>development</string>
 </dict>
 </plist>
