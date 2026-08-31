@@ -33,6 +33,9 @@ targets:
       properties:
         CFBundleShortVersionString: "1.0"   # marketing version — bump for real releases
         CFBundleVersion: "1"                 # build number — release.sh overwrites with a timestamp
+        # App uses only standard HTTPS/TLS (exempt encryption) -> declare it so every
+        # TestFlight build skips the "Missing Compliance" hold and goes straight to testers.
+        ITSAppUsesNonExemptEncryption: false
         UILaunchScreen: {}
         NSLocationWhenInUseUsageDescription: "Shows your position on the incident map"
         UISupportedInterfaceOrientations:
