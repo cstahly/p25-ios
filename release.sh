@@ -5,6 +5,14 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# Homebrew paths aren't always on PATH (e.g. non-login shells) — find xcodegen.
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+XCODEGEN=$(command -v xcodegen || true)
+if [ -z "$XCODEGEN" ]; then
+  echo "error: xcodegen not found. Install it: brew install xcodegen" >&2
+  exit 1
+fi
+
 BUILD=$(date +%Y%m%d%H%M)   # e.g. 202608301447 — monotonic, unique per minute
 
 # Overwrite the build number (CFBundleVersion) in project.yml.
@@ -12,7 +20,7 @@ BUILD=$(date +%Y%m%d%H%M)   # e.g. 202608301447 — monotonic, unique per minute
 
 # Regenerate the .xcodeproj from project.yml (picks up the new build number,
 # entitlements, team, and any new source files).
-xcodegen
+"$XCODEGEN"
 
 MARKETING=$(/usr/bin/sed -nE 's/.*CFBundleShortVersionString: "([^"]+)".*/\1/p' project.yml | head -1)
 echo ""
