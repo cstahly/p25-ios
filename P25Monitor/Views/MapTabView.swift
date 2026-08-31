@@ -306,25 +306,26 @@ struct MapTabView: View {
     @StateObject private var locator = LocationFetcher()
     @State private var selectedIncident: Incident?
     @State private var detailIncident: Incident?
-    @State private var mapFilter = "now"  // "critical" | "now" | "8hr" | "all"
+    @State private var mapFilter = "4h"  // time window: "4h" | "12h" | "24h" | "all"
     @State private var showHeat = false
     @State private var showALPR = false
     @State private var recenter: CLLocationCoordinate2D?
 
     // Semantics match the web map's defaults: time-windowed on last_seen.
+    // Pure time-window filter on last_seen; priority is shown by pin color+size, not
+    // by filtering. "all" = no time limit.
     var visibleIncidents: [Incident] {
-        let h4 = Date().addingTimeInterval(-4 * 3600)
-        let h8 = Date().addingTimeInterval(-8 * 3600)
+        let cutoffs: [String: Date] = [
+            "4h":  Date().addingTimeInterval(-4 * 3600),
+            "12h": Date().addingTimeInterval(-12 * 3600),
+            "24h": Date().addingTimeInterval(-24 * 3600),
+        ]
         return store.incidents.filter {
             // Skip the un-mappable approximate pile (everything that geocoded to the
             // city centroid) — it's the blob that made the map unreadable.
             guard $0.coordinate != nil, !$0.approxLocation else { return false }
-            switch mapFilter {
-            case "critical": return $0.statusKind != "clear" && $0.priorityLevel <= 2 && _seen($0, since: h4)
-            case "now":      return _seen($0, since: h4)
-            case "8hr":      return _seen($0, since: h8)
-            default:         return true
-            }
+            guard let cutoff = cutoffs[mapFilter] else { return true }  // "all"
+            return _seen($0, since: cutoff)
         }
     }
 
@@ -389,7 +390,7 @@ struct MapTabView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             } else {
                 HStack(spacing: 1) {
-                    ForEach([("critical", "Critical"), ("now", "Now"), ("8hr", "8hr"), ("all", "All")], id: \.0) { val, label in
+                    ForEach([("4h", "4h"), ("12h", "12h"), ("24h", "24h"), ("all", "All")], id: \.0) { val, label in
                         Button(label) { mapFilter = val }
                             .font(.subheadline.weight(mapFilter == val ? .semibold : .regular))
                             .frame(minWidth: 72)
