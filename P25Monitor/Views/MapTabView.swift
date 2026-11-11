@@ -33,44 +33,7 @@ func spreadCoincident(_ incidents: [Incident]) -> [(incident: Incident, coordina
     return out
 }
 
-// MARK: - Pin images (numbered priority circle; matches web + CarPlay)
-
-func incidentPinImage(for inc: Incident) -> UIImage {
-    let prio = inc.priorityLevel
-    let stale = inc.stale
-    let live: [Int: UIColor] = [
-        1: UIColor(red: 0.66, green: 0.33, blue: 0.97, alpha: 1),
-        2: UIColor(red: 0.94, green: 0.27, blue: 0.27, alpha: 1),
-        3: UIColor(red: 0.92, green: 0.70, blue: 0.03, alpha: 1),
-        4: UIColor(red: 0.05, green: 0.65, blue: 0.91, alpha: 1),
-        5: UIColor(red: 0.28, green: 0.33, blue: 0.41, alpha: 1),
-    ]
-    let dark: [Int: UIColor] = [
-        1: UIColor(red: 0.45, green: 0.00, blue: 0.89, alpha: 1),
-        2: UIColor(red: 0.80, green: 0.01, blue: 0.01, alpha: 1),
-        3: UIColor(red: 0.65, green: 0.49, blue: 0.00, alpha: 1),
-        4: UIColor(red: 0.00, green: 0.45, blue: 0.66, alpha: 1),
-        5: UIColor(red: 0.18, green: 0.22, blue: 0.29, alpha: 1),
-    ]
-    let fill = (stale ? dark[prio] : live[prio]) ?? .systemYellow
-    let gray = UIColor(red: 0.61, green: 0.64, blue: 0.69, alpha: 1)
-    let size: CGFloat = [1: 30, 2: 26, 3: 22, 4: 18, 5: 16][prio] ?? 22
-    let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
-    return renderer.image { ctx in
-        let rect = CGRect(x: 1, y: 1, width: size - 2, height: size - 2)
-        fill.setFill()
-        ctx.cgContext.fillEllipse(in: rect)
-        (stale ? gray : UIColor.white).setStroke()
-        ctx.cgContext.setLineWidth(2)
-        if stale { ctx.cgContext.setLineDash(phase: 0, lengths: [3, 2]) }
-        ctx.cgContext.strokeEllipse(in: rect)
-        let text = "\(prio)" as NSString
-        let font = UIFont.systemFont(ofSize: size * 0.48, weight: .heavy)
-        let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: stale ? gray : UIColor.white]
-        let ts = text.size(withAttributes: attrs)
-        text.draw(at: CGPoint(x: (size - ts.width) / 2, y: (size - ts.height) / 2), withAttributes: attrs)
-    }
-}
+// MARK: - Pin images (incident pins come from IncidentStyle.pinImage)
 
 func cameraPinImage(dir: Double?) -> UIImage {
     let size: CGFloat = 22
@@ -107,7 +70,7 @@ func cameraPinImage(dir: Double?) -> UIImage {
 // MARK: - Annotations
 
 final class IncidentAnnotation: NSObject, MKAnnotation {
-    let incident: Incident
+    var incident: Incident
     let coordinate: CLLocationCoordinate2D
     init(incident: Incident, coordinate: CLLocationCoordinate2D) {
         self.incident = incident
@@ -198,20 +161,48 @@ struct IncidentMapView: UIViewRepresentable {
         var parent: IncidentMapView
         private var heat: HeatOverlay?
         private var heatKey = -2
-        private var pinKey = ""
         init(_ p: IncidentMapView) { parent = p }
 
+        private var camCount = -1
+
+        /// Diff pins by incident id instead of wiping the map on every refresh -
+        /// the wipe was what made pins blink and reshuffle.
         func syncAnnotations(_ mv: MKMapView,
                              pins: [(incident: Incident, coordinate: CLLocationCoordinate2D)],
                              cameras: [ALPRCamera]) {
-            let key = pins.map { "\($0.incident.id):\($0.incident.priorityLevel):\($0.incident.stale)" }
-                .joined() + "|cam\(cameras.count)"
-            guard key != pinKey else { return }
-            pinKey = key
-            mv.removeAnnotations(mv.annotations.filter { !($0 is MKUserLocation) })
-            var anns: [MKAnnotation] = pins.map { IncidentAnnotation(incident: $0.incident, coordinate: $0.coordinate) }
-            anns += cameras.map { CameraAnnotation(camera: $0) }
-            mv.addAnnotations(anns)
+            var wanted: [String: (incident: Incident, coordinate: CLLocationCoordinate2D)] = [:]
+            for p in pins { wanted[p.incident.id] = p }
+
+            var toRemove: [MKAnnotation] = []
+            var have = Set<String>()
+            for case let ann as IncidentAnnotation in mv.annotations {
+                guard let w = wanted[ann.incident.id],
+                      abs(w.coordinate.latitude - ann.coordinate.latitude) < 1e-7,
+                      abs(w.coordinate.longitude - ann.coordinate.longitude) < 1e-7 else {
+                    toRemove.append(ann); continue
+                }
+                have.insert(ann.incident.id)
+                if w.incident != ann.incident {
+                    ann.incident = w.incident
+                    if let v = mv.view(for: ann) { style(v, for: w.incident) }
+                }
+            }
+            mv.removeAnnotations(toRemove)
+            mv.addAnnotations(pins.filter { !have.contains($0.incident.id) }
+                .map { IncidentAnnotation(incident: $0.incident, coordinate: $0.coordinate) })
+
+            if cameras.count != camCount {
+                camCount = cameras.count
+                mv.removeAnnotations(mv.annotations.filter { $0 is CameraAnnotation })
+                mv.addAnnotations(cameras.map { CameraAnnotation(camera: $0) })
+            }
+        }
+
+        private func style(_ v: MKAnnotationView, for inc: Incident) {
+            v.image = IncidentStyle.pinImage(for: inc)
+            // Live calls sit on top of cleared ones and are never decluttered away.
+            v.zPriority = inc.isCleared ? .defaultUnselected : .max
+            v.displayPriority = inc.isCleared ? .defaultHigh : .required
         }
 
         func syncHeat(_ mv: MKMapView, show: Bool, points: [CLLocationCoordinate2D]) {
@@ -236,10 +227,9 @@ struct IncidentMapView: UIViewRepresentable {
                 let v = mv.dequeueReusableAnnotationView(withIdentifier: "inc")
                     ?? MKAnnotationView(annotation: ia, reuseIdentifier: "inc")
                 v.annotation = ia
-                v.image = incidentPinImage(for: ia.incident)
                 v.canShowCallout = false
                 v.clusteringIdentifier = nil       // never collate into a "12" bubble
-                v.displayPriority = .required       // never get decluttered/hidden
+                style(v, for: ia.incident)
                 return v
             }
             if let ca = annotation as? CameraAnnotation {
@@ -306,51 +296,39 @@ struct MapTabView: View {
     @StateObject private var locator = LocationFetcher()
     @State private var selectedIncident: Incident?
     @State private var detailIncident: Incident?
-    @State private var mapFilter = "4h"  // time window: "4h" | "12h" | "24h" | "all"
+    // "active" | "4h" | "24h" | "all". Always opens on Active; the defaults key is
+    // only set by a `-P25MapFilter 24h` launch argument, for screenshots/testing.
+    @State private var mapFilter = UserDefaults.standard.string(forKey: "P25MapFilter") ?? "active"
     @State private var showHeat = false
     @State private var showALPR = false
     @State private var recenter: CLLocationCoordinate2D?
 
-    // Semantics match the web map's defaults: time-windowed on last_seen.
-    // Pure time-window filter on last_seen; priority is shown by pin color+size, not
-    // by filtering. "all" = no time limit.
+    // "Active" = calls that haven't cleared, whenever they started - the default,
+    // because that's what's actually happening. The time windows add cleared
+    // calls, drawn small and gray so they never compete with live ones.
+    static let filters: [(String, String)] = [("active", "Active"), ("4h", "4h"), ("24h", "24h"), ("all", "All")]
+
     var visibleIncidents: [Incident] {
         let cutoffs: [String: Date] = [
             "4h":  Date().addingTimeInterval(-4 * 3600),
-            "12h": Date().addingTimeInterval(-12 * 3600),
             "24h": Date().addingTimeInterval(-24 * 3600),
         ]
         return store.incidents.filter {
             // Skip the un-mappable approximate pile (everything that geocoded to the
-            // city centroid) — it's the blob that made the map unreadable.
+            // city centroid) - it's the blob that made the map unreadable.
             guard $0.coordinate != nil, !$0.approxLocation else { return false }
+            if mapFilter == "active" { return !$0.isCleared }
             guard let cutoff = cutoffs[mapFilter] else { return true }  // "all"
-            return _seen($0, since: cutoff)
+            return !$0.isCleared || ($0.lastSeenDate ?? .distantPast) >= cutoff
         }
     }
+
+    private var activeCount: Int { visibleIncidents.filter { !$0.isCleared }.count }
 
     // Heatmap = full-history density of precise points (loaded on demand so the
     // normal poll stays light).
     var heatPoints: [CLLocationCoordinate2D] {
         store.heatIncidents.filter { !$0.approxLocation }.compactMap { $0.coordinate }
-    }
-
-    private func _seen(_ inc: Incident, since cutoff: Date) -> Bool {
-        guard let raw = inc.lastSeen else { return false }
-        let df = DateFormatter()
-        for fmt in ["yyyy-MM-dd HH:mm:ss", "HH:mm:ss"] {
-            df.dateFormat = fmt
-            if var d = df.date(from: raw) {
-                if fmt == "HH:mm:ss" {
-                    let cal = Calendar.current; let now = Date()
-                    d = cal.date(bySettingHour: cal.component(.hour, from: d),
-                                 minute: cal.component(.minute, from: d),
-                                 second: cal.component(.second, from: d), of: now) ?? d
-                }
-                return d >= cutoff
-            }
-        }
-        return false
     }
 
     private func goToCurrentLocation() {
@@ -389,18 +367,31 @@ struct MapTabView: View {
                     .padding()
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             } else {
-                HStack(spacing: 1) {
-                    ForEach([("4h", "4h"), ("12h", "12h"), ("24h", "24h"), ("all", "All")], id: \.0) { val, label in
-                        Button(label) { mapFilter = val }
-                            .font(.subheadline.weight(mapFilter == val ? .semibold : .regular))
-                            .frame(minWidth: 72)
-                            .padding(.vertical, 14)
-                            .background(mapFilter == val ? Color.accentColor : Color(.systemBackground))
-                            .foregroundColor(mapFilter == val ? .white : .primary)
+                VStack(spacing: 8) {
+                    if mapFilter == "active" && activeCount == 0 {
+                        Text("Nothing active right now")
+                            .font(.footnote.weight(.medium))
+                            .padding(.horizontal, 12).padding(.vertical, 6)
+                            .background(.regularMaterial, in: Capsule())
                     }
+                    HStack(spacing: 1) {
+                        ForEach(Self.filters, id: \.0) { val, label in
+                            // Padding + background live inside the label so the whole
+                            // segment is tappable, not just the text.
+                            Button { mapFilter = val } label: {
+                                Text(label)
+                                    .font(.subheadline.weight(mapFilter == val ? .semibold : .regular))
+                                    .frame(maxWidth: .infinity, minHeight: 48)
+                                    .background(mapFilter == val ? Color.accentColor : Color(.systemBackground))
+                                    .foregroundColor(mapFilter == val ? .white : .primary)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .shadow(radius: 6)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .shadow(radius: 6)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 20)
                 .animation(.default, value: mapFilter)
@@ -452,8 +443,11 @@ struct IncidentCallout: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("\(incident.statusEmoji) \(incident.title)")
-                        .font(.headline)
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        IncidentDot(incident: incident, size: 12)
+                        Text(incident.title)
+                            .font(.headline)
+                    }
                     Text(incident.agency)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
@@ -463,7 +457,9 @@ struct IncidentCallout: View {
                             .foregroundColor(.secondary)
                     }
                     if !incident.firstSeenDisplay.isEmpty {
-                        Label("First: \(incident.firstSeenDisplay)", systemImage: "clock")
+                        Label(incident.isCleared ? "Cleared · last heard \(incident.age)"
+                                                 : "Started \(incident.firstSeenDisplay) · last heard \(incident.age)",
+                              systemImage: "clock")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }

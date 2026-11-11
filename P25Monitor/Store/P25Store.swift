@@ -96,11 +96,13 @@ class P25Store: ObservableObject {
 
     func refresh() async {
         guard P25Client.shared.isConfigured else { return }
+        lastRefresh = Date()   // stamp at start so failures don't retry on every tx
         do {
             let state = try await P25Client.shared.fetchState()
-            incidents = state.incidents
-            lastError = nil
-            lastRefresh = Date()
+            // Only publish real changes - every publish redraws the map and
+            // rebuilds the CarPlay templates.
+            if state.incidents != incidents { incidents = state.incidents }
+            if lastError != nil { lastError = nil }
         } catch {
             lastError = error.localizedDescription
         }
@@ -119,7 +121,9 @@ class P25Store: ObservableObject {
                         // SSE event carries no id, so don't insert it here (avoids
                         // duplicates). Still use the stream to nudge incident refresh.
                         NotificationCenter.default.post(name: .p25NewTX, object: event)
-                        if Date().timeIntervalSince(lastRefresh) > 5 {
+                        // Radio traffic is near-constant; a full incident fetch on each
+                        // transmission was ~300 KB every 5 s. 15 s is plenty fresh.
+                        if Date().timeIntervalSince(lastRefresh) > 15 {
                             await refresh()
                         }
                     }

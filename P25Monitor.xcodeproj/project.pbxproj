@@ -16,10 +16,13 @@
 		3E1321622B28FC4C97D54951 /* Secrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A6234E792E318F956627F0 /* Secrets.swift */; };
 		467E0B768B14228B224EDEBA /* P25AudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D3335F8E344282D2C931930 /* P25AudioPlayer.swift */; };
 		60428CE86AF75903017B0087 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B025FF06582D389BC748EE18 /* Assets.xcassets */; };
+		629DE5DB9E983FBD069D2CB0 /* IncidentStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E0B4CDF3EF8B2E0902D3BA3 /* IncidentStyle.swift */; };
 		6F4C42FD13B7348E0982CABD /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA3CDA977EF4AC99455EBE6A /* ContentView.swift */; };
 		889EAEB2DC47FE3AB08A36D7 /* CarPlayCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3352FFC26C2CB1BDD99612B /* CarPlayCoordinator.swift */; };
 		978DF3312ED99840EDF232F4 /* CarPlaySceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06E1FEB8C5BC1FF95FE94E15 /* CarPlaySceneDelegate.swift */; };
+		A5081C8504DC1E337F22D9E0 /* NotificationSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7964FAC202872D4D93C2E322 /* NotificationSettingsView.swift */; };
 		B0B7DBD3D08FCF2E8550E364 /* AudioControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E864B5B0CC87B2BA4B661CD /* AudioControlView.swift */; };
+		BECCF0654B1156B6DAE8BDD5 /* PushManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C30624A5F1D25DB207A911A /* PushManager.swift */; };
 		CA854CE60ED8AABA00B87658 /* MapTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57021217AD418FD0152965EE /* MapTabView.swift */; };
 		DC159F652AF6DB9970A8A673 /* P25MonitorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABE8A1D61D3D96D77661342F /* P25MonitorApp.swift */; };
 		F2BF313C1FDC8E1140D3BC7F /* P25Client.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180CCD90881D68963D5877F1 /* P25Client.swift */; };
@@ -28,18 +31,21 @@
 
 /* Begin PBXFileReference section */
 		06E1FEB8C5BC1FF95FE94E15 /* CarPlaySceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlaySceneDelegate.swift; sourceTree = "<group>"; };
-		115A94CFE2727E8DD5E19C29 /* P25Monitor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = P25Monitor.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		115A94CFE2727E8DD5E19C29 /* P25Monitor.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = P25Monitor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		180CCD90881D68963D5877F1 /* P25Client.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P25Client.swift; sourceTree = "<group>"; };
 		2176A0A17882E2616BFF22C8 /* LogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogView.swift; sourceTree = "<group>"; };
 		36C00C29FBD7C15722A8D0E3 /* P25Store.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P25Store.swift; sourceTree = "<group>"; };
 		3E864B5B0CC87B2BA4B661CD /* AudioControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioControlView.swift; sourceTree = "<group>"; };
 		4938CE236A451FD8DB822922 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		57021217AD418FD0152965EE /* MapTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapTabView.swift; sourceTree = "<group>"; };
+		5C30624A5F1D25DB207A911A /* PushManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushManager.swift; sourceTree = "<group>"; };
 		5D3335F8E344282D2C931930 /* P25AudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P25AudioPlayer.swift; sourceTree = "<group>"; };
+		5E0B4CDF3EF8B2E0902D3BA3 /* IncidentStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncidentStyle.swift; sourceTree = "<group>"; };
+		7964FAC202872D4D93C2E322 /* NotificationSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettingsView.swift; sourceTree = "<group>"; };
 		8D6DC78454C72D28023E1FD2 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		9A9C0AE5A48E98FC8F394BC5 /* P25Monitor.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = P25Monitor.entitlements; sourceTree = "<group>"; };
 		ABE8A1D61D3D96D77661342F /* P25MonitorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P25MonitorApp.swift; sourceTree = "<group>"; };
-		AFA7C8DCFB7C79A922C2106A /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
+		AFA7C8DCFB7C79A922C2106A /* .gitignore */ = {isa = PBXFileReference; path = .gitignore; sourceTree = "<group>"; };
 		B025FF06582D389BC748EE18 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B1A6234E792E318F956627F0 /* Secrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Secrets.swift; sourceTree = "<group>"; };
 		BFAC9CC93E6F10AAE6C1C367 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -60,6 +66,7 @@
 				F0E0BCA464670BC2EA6335F2 /* IncidentListView.swift */,
 				2176A0A17882E2616BFF22C8 /* LogView.swift */,
 				57021217AD418FD0152965EE /* MapTabView.swift */,
+				7964FAC202872D4D93C2E322 /* NotificationSettingsView.swift */,
 				E51EEB9DEBD55B391A2FDC77 /* SettingsView.swift */,
 			);
 			path = Views;
@@ -84,6 +91,7 @@
 				207C95BBFDBCBE14C8259628 /* CarPlay */,
 				66F194EC675FE1EF8B916240 /* Models */,
 				C90494559787968287EFA4EF /* Network */,
+				C8070E580532DF4A7F6CF68B /* Push */,
 				01BFF37DC33296D6AE2A6B89 /* Store */,
 				001B29B3C6095B286676C204 /* Views */,
 			);
@@ -127,6 +135,7 @@
 		66F194EC675FE1EF8B916240 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				5E0B4CDF3EF8B2E0902D3BA3 /* IncidentStyle.swift */,
 				4938CE236A451FD8DB822922 /* Models.swift */,
 			);
 			path = Models;
@@ -138,6 +147,14 @@
 				03788857C28B3F57C627E898 /* P25Monitor */,
 				29FA029AFB8B5A4EAA6885D1 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		C8070E580532DF4A7F6CF68B /* Push */ = {
+			isa = PBXGroup;
+			children = (
+				5C30624A5F1D25DB207A911A /* PushManager.swift */,
+			);
+			path = Push;
 			sourceTree = "<group>";
 		};
 		C90494559787968287EFA4EF /* Network */ = {
@@ -157,6 +174,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 29B8B3B363133A27B85F6E27 /* Build configuration list for PBXNativeTarget "P25Monitor" */;
 			buildPhases = (
+				E61E901DC16FA6A126F2C8D6 /* Verify CarPlay entitlement */,
 				DACC159A14D1397570309D6A /* Sources */,
 				AD147A0C7E38D3098709B9CC /* Resources */,
 			);
@@ -179,6 +197,11 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					CF7C802A451056967E6BA6BC = {
+						DevelopmentTeam = 634QAM3ZHG;
+					};
+				};
 			};
 			buildConfigurationList = 8F65A38388C97DDC3ACB54BA /* Build configuration list for PBXProject "P25Monitor" */;
 			developmentRegion = en;
@@ -210,6 +233,29 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		E61E901DC16FA6A126F2C8D6 /* Verify CarPlay entitlement */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/P25Monitor/P25Monitor.entitlements",
+			);
+			name = "Verify CarPlay entitlement";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if ! /usr/libexec/PlistBuddy -c \"Print :com.apple.developer.carplay-driving-task\" \\\n     \"$SRCROOT/P25Monitor/P25Monitor.entitlements\" 2>/dev/null | grep -q true; then\n  echo \"error: P25Monitor.entitlements lost the CarPlay key (Xcode stripped it). Run xcodegen, or git checkout the file.\"\n  exit 1\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		DACC159A14D1397570309D6A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -222,13 +268,16 @@
 				6F4C42FD13B7348E0982CABD /* ContentView.swift in Sources */,
 				211506A90CD6C9044D6BD9C4 /* IncidentDetailView.swift in Sources */,
 				F363B28ADEDF51C27F21BC20 /* IncidentListView.swift in Sources */,
+				629DE5DB9E983FBD069D2CB0 /* IncidentStyle.swift in Sources */,
 				07AA5A0B8496954BCD1F46D3 /* LogView.swift in Sources */,
 				CA854CE60ED8AABA00B87658 /* MapTabView.swift in Sources */,
 				2BD1687D6915BDB5CA375979 /* Models.swift in Sources */,
+				A5081C8504DC1E337F22D9E0 /* NotificationSettingsView.swift in Sources */,
 				467E0B768B14228B224EDEBA /* P25AudioPlayer.swift in Sources */,
 				F2BF313C1FDC8E1140D3BC7F /* P25Client.swift in Sources */,
 				DC159F652AF6DB9970A8A673 /* P25MonitorApp.swift in Sources */,
 				109B82E1496A030886A1B34A /* P25Store.swift in Sources */,
+				BECCF0654B1156B6DAE8BDD5 /* PushManager.swift in Sources */,
 				3E1321622B28FC4C97D54951 /* Secrets.swift in Sources */,
 				04409DA4BB90ED1BDA905EA3 /* SettingsView.swift in Sources */,
 			);

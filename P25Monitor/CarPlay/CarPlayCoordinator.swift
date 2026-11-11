@@ -80,7 +80,7 @@ class CarPlayCoordinator: NSObject {
     @MainActor
     private func updatePOI(incidents: [Incident]) {
         let prioritized = Array(incidents
-            .filter { $0.coordinate != nil && $0.statusKind != "clear" }
+            .filter { $0.coordinate != nil && !$0.isCleared }
             .sorted {
                 let p0 = $0.priority ?? 3, p1 = $1.priority ?? 3
                 if p0 != p1 { return p0 < p1 }
@@ -97,18 +97,18 @@ class CarPlayCoordinator: NSObject {
         }
         let pois: [CPPointOfInterest] = placed.map { inc, coord in
             let loc = MKMapItem(placemark: MKPlacemark(coordinate: coord))
-            loc.name = "\(inc.priorityDot) \(inc.title)"
+            loc.name = inc.title
 
             let poi = CPPointOfInterest(
                 location: loc,
-                title: "\(inc.priorityDot) \(inc.title)",
+                title: inc.title,
                 subtitle: "P\(inc.priorityLevel) · \(inc.agency)",
                 summary: inc.location.isEmpty ? nil : inc.location,
-                detailTitle: "\(inc.priorityDot) \(inc.title)",
+                detailTitle: inc.title,
                 detailSubtitle: "P\(inc.priorityLevel) · \(inc.agency) · \(inc.age)",
                 detailSummary: [inc.location.isEmpty ? nil : inc.location, inc.action, inc.details?.first]
                     .compactMap { $0 }.filter { !$0.isEmpty }.first,
-                pinImage: pinImage(for: inc)
+                pinImage: IncidentStyle.pinImage(for: inc, scale: 1.15)
             )
             poi.userInfo = inc
             // Button on the forced selection card: dismiss the card and open the
@@ -127,46 +127,6 @@ class CarPlayCoordinator: NSObject {
         poiTemplate?.setPointsOfInterest(pois, selectedIndex: NSNotFound)
     }
 
-    /// Numbered circle sized+colored by priority — matches the web/iOS map pins.
-    private func pinImage(for inc: Incident) -> UIImage? {
-        let prio = inc.priorityLevel
-        let stale = inc.stale
-        let live: [Int: UIColor] = [
-            1: UIColor(red: 0.66, green: 0.33, blue: 0.97, alpha: 1),
-            2: UIColor(red: 0.94, green: 0.27, blue: 0.27, alpha: 1),
-            3: UIColor(red: 0.92, green: 0.70, blue: 0.03, alpha: 1),
-            4: UIColor(red: 0.05, green: 0.65, blue: 0.91, alpha: 1),
-            5: UIColor(red: 0.28, green: 0.33, blue: 0.41, alpha: 1),
-        ]
-        let dark: [Int: UIColor] = [
-            1: UIColor(red: 0.45, green: 0.00, blue: 0.89, alpha: 1),
-            2: UIColor(red: 0.80, green: 0.01, blue: 0.01, alpha: 1),
-            3: UIColor(red: 0.65, green: 0.49, blue: 0.00, alpha: 1),
-            4: UIColor(red: 0.00, green: 0.45, blue: 0.66, alpha: 1),
-            5: UIColor(red: 0.18, green: 0.22, blue: 0.29, alpha: 1),
-        ]
-        let fill = (stale ? dark[prio] : live[prio]) ?? .systemYellow
-        let gray = UIColor(red: 0.61, green: 0.64, blue: 0.69, alpha: 1)
-        let size: CGFloat = [1: 34, 2: 30, 3: 26, 4: 22, 5: 20][prio] ?? 26
-
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
-        return renderer.image { ctx in
-            let rect = CGRect(x: 1, y: 1, width: size - 2, height: size - 2)
-            fill.setFill()
-            ctx.cgContext.fillEllipse(in: rect)
-            (stale ? gray : UIColor.white).setStroke()
-            ctx.cgContext.setLineWidth(2)
-            if stale { ctx.cgContext.setLineDash(phase: 0, lengths: [3, 2]) }
-            ctx.cgContext.strokeEllipse(in: rect)
-            let text = "\(prio)" as NSString
-            let font = UIFont.systemFont(ofSize: size * 0.48, weight: .heavy)
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: font, .foregroundColor: stale ? gray : UIColor.white]
-            let ts = text.size(withAttributes: attrs)
-            text.draw(at: CGPoint(x: (size - ts.width) / 2, y: (size - ts.height) / 2), withAttributes: attrs)
-        }
-    }
-
     // MARK: - Incidents list
 
     @MainActor
@@ -178,8 +138,10 @@ class CarPlayCoordinator: NSObject {
             let rank: (String) -> Int = { k in k == "active" ? 0 : k == "routine" ? 1 : 2 }
             return rank($0.statusKind) < rank($1.statusKind)
         }
-        let active  = incidents.filter { $0.statusKind != "clear" }.sorted(by: byPriority)
-        let cleared = incidents.filter { $0.statusKind == "clear" }.sorted(by: byPriority)
+        let active  = incidents.filter { !$0.isCleared }.sorted(by: byPriority)
+        // Cleared: most recent first, and only the last few - the car is for what's live.
+        let cleared = incidents.filter { $0.isCleared }
+            .sorted { ($0.lastSeenDate ?? .distantPast) > ($1.lastSeenDate ?? .distantPast) }
 
         let makeItems: ([Incident]) -> [CPListItem] = { [weak self] list in
             list.prefix(30).map { inc in
@@ -187,9 +149,9 @@ class CarPlayCoordinator: NSObject {
                               inc.location.isEmpty ? nil : inc.location,
                               inc.age.isEmpty      ? nil : inc.age]
                     .compactMap { $0 }.joined(separator: " · ")
-                // Priority-colored dot for active rows; keep cleared rows' existing look.
-                let dot = inc.statusKind == "clear" ? inc.statusEmoji : inc.priorityDot
-                let item = CPListItem(text: "P\(inc.priorityLevel) \(dot) \(inc.title)", detailText: detail)
+                // Same pin as the map: color = priority, gray = cleared.
+                let item = CPListItem(text: inc.title, detailText: detail,
+                                      image: IncidentStyle.pinImage(for: inc, scale: 1.2))
                 item.handler = { [weak self] _, completion in
                     self?.pushIncidentDetail(inc)
                     completion()
@@ -200,15 +162,17 @@ class CarPlayCoordinator: NSObject {
 
         var sections: [CPListSection] = []
         if !active.isEmpty  { sections.append(CPListSection(items: makeItems(active),  header: "Active",  sectionIndexTitle: nil)) }
-        if !cleared.isEmpty { sections.append(CPListSection(items: makeItems(cleared), header: "Cleared", sectionIndexTitle: nil)) }
-        if sections.isEmpty { sections = [CPListSection(items: [CPListItem(text: "No incidents", detailText: nil)])] }
+        if !cleared.isEmpty { sections.append(CPListSection(items: Array(makeItems(cleared).prefix(10)), header: "Recently cleared", sectionIndexTitle: nil)) }
+        if active.isEmpty {
+            sections.insert(CPListSection(items: [CPListItem(text: "Nothing active right now", detailText: nil)]), at: 0)
+        }
         listTemplate?.updateSections(sections)
     }
 
     @MainActor
     private func pushIncidentDetail(_ incident: Incident) {
         var rows: [CPInformationItem] = [
-            CPInformationItem(title: "Status",   detail: "\(incident.priorityDot) \(incident.status)"),
+            CPInformationItem(title: "Status",   detail: incident.isCleared ? "Cleared" : incident.status),
             CPInformationItem(title: "Priority", detail: incident.priorityLabel),
             CPInformationItem(title: "Agency",   detail: incident.agency),
         ]

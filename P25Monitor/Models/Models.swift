@@ -20,102 +20,39 @@ struct Incident: Identifiable, Codable, Equatable {
         return CLLocationCoordinate2D(latitude: lat, longitude: lng)
     }
 
-    var statusEmoji: String {
-        switch statusKind {
-        case "active":  return "🔴"
-        case "routine": return "🟠"
-        case "clear":   return "⚪"
-        default:        return "🟠"
-        }
-    }
+    var isCleared: Bool { statusKind == "clear" }
 
     var priorityLevel: Int { priority ?? 3 }
 
-    /// Colored dot matching the map pin colors (purple/red/yellow/blue/gray).
-    var priorityDot: String {
-        switch priorityLevel {
-        case 1:  return "🟣"
-        case 2:  return "🔴"
-        case 3:  return "🟡"
-        case 4:  return "🔵"
-        default: return "⚪"
-        }
-    }
-
     var priorityLabel: String {
         switch priorityLevel {
-        case 1: return "1 — Critical"
-        case 2: return "2 — Serious"
-        case 4: return "4 — Minor"
-        case 5: return "5 — Routine"
-        default: return "3 — Moderate"
+        case 1: return "1 - Critical"
+        case 2: return "2 - Serious"
+        case 4: return "4 - Minor"
+        case 5: return "5 - Routine"
+        default: return "3 - Moderate"
         }
     }
 
-    var priorityColor: Color {
-        switch priorityLevel {
-        case 1: return Color(red: 0.66, green: 0.33, blue: 0.97)
-        case 2: return Color(red: 0.94, green: 0.27, blue: 0.27)
-        case 3: return Color(red: 0.92, green: 0.70, blue: 0.03)
-        case 4: return Color(red: 0.05, green: 0.65, blue: 0.91)
-        default: return Color(red: 0.28, green: 0.33, blue: 0.41)
-        }
-    }
+    var priorityColor: Color { IncidentStyle.color(priority: priorityLevel) }
+
+    var firstSeenDate: Date? { IncidentStyle.parseServerDate(firstSeen) }
+    var lastSeenDate: Date? { IncidentStyle.parseServerDate(lastSeen) }
 
     var age: String {
-        guard let lastSeen else { return "" }
-        let fmts = ["yyyy-MM-dd HH:mm:ss", "HH:mm:ss"]
-        let df = DateFormatter()
-        for fmt in fmts {
-            df.dateFormat = fmt
-            if var date = df.date(from: lastSeen) {
-                if fmt == "HH:mm:ss" {
-                    let cal = Calendar.current
-                    let now = Date()
-                    date = cal.date(bySettingHour: cal.component(.hour, from: date),
-                                   minute: cal.component(.minute, from: date),
-                                   second: cal.component(.second, from: date),
-                                   of: now) ?? date
-                }
-                let secs = -date.timeIntervalSinceNow
-                if secs < 60  { return "just now" }
-                if secs < 3600 { return "\(Int(secs/60))m ago" }
-                return "\(Int(secs/3600))h ago"
-            }
-        }
-        return lastSeen
+        guard let d = lastSeenDate else { return lastSeen ?? "" }
+        let secs = -d.timeIntervalSinceNow
+        if secs < 60  { return "just now" }
+        if secs < 3600 { return "\(Int(secs/60))m ago" }
+        return "\(Int(secs/3600))h ago"
     }
 
     var firstSeenDisplay: String {
-        guard let firstSeen else { return "" }
-        return _timeDisplay(from: firstSeen)
+        firstSeenDate.map { IncidentStyle.displayFormatter.string(from: $0) } ?? (firstSeen ?? "")
     }
 
     var lastSeenDisplay: String {
-        guard let lastSeen else { return "" }
-        return _timeDisplay(from: lastSeen)
-    }
-
-    private func _timeDisplay(from raw: String) -> String {
-        let fmts = ["yyyy-MM-dd HH:mm:ss", "HH:mm:ss"]
-        let df = DateFormatter()
-        let out = DateFormatter()
-        out.dateFormat = "h:mm a"
-        for fmt in fmts {
-            df.dateFormat = fmt
-            if var date = df.date(from: raw) {
-                if fmt == "HH:mm:ss" {
-                    let cal = Calendar.current
-                    let now = Date()
-                    date = cal.date(bySettingHour: cal.component(.hour, from: date),
-                                   minute: cal.component(.minute, from: date),
-                                   second: cal.component(.second, from: date),
-                                   of: now) ?? date
-                }
-                return out.string(from: date)
-            }
-        }
-        return raw
+        lastSeenDate.map { IncidentStyle.displayFormatter.string(from: $0) } ?? (lastSeen ?? "")
     }
 
     let details: [String]?

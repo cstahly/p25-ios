@@ -10,9 +10,13 @@ struct IncidentListView: View {
             statusFilter == "critical" ? ($0.statusKind != "clear" && $0.priorityLevel <= 2) :
                                          $0.statusKind != "clear"  // "active" default
         }
+        // Open calls first, then by priority, then most recently heard.
         return list.sorted {
+            if $0.isCleared != $1.isCleared { return !$0.isCleared }
             if $0.priorityLevel != $1.priorityLevel { return $0.priorityLevel < $1.priorityLevel }
-            return statusWeight($0.statusKind) < statusWeight($1.statusKind)
+            let w0 = statusWeight($0.statusKind), w1 = statusWeight($1.statusKind)
+            if w0 != w1 { return w0 < w1 }
+            return ($0.lastSeenDate ?? .distantPast) > ($1.lastSeenDate ?? .distantPast)
         }
     }
 
@@ -98,80 +102,30 @@ struct IncidentRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(priorityColor(incident.priorityLevel).opacity(0.55))
-                    .frame(width: 16, height: 16)
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 8, height: 8)
-            }
+            IncidentDot(incident: incident, size: 14)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(incident.title)
                     .font(.headline)
+                    .foregroundColor(incident.isCleared ? .secondary : .primary)
+                    .lineLimit(2)
+                Text([incident.agency, incident.location].filter { !$0.isEmpty }.joined(separator: " · "))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
                     .lineLimit(1)
-                HStack {
-                    Text(incident.agency)
-                    if !incident.location.isEmpty {
-                        Text("·")
-                        Text(incident.location)
-                    }
-                }
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .lineLimit(1)
             }
 
-            Spacer()
+            Spacer(minLength: 8)
 
-            VStack(alignment: .trailing, spacing: 2) {
-                if !incident.firstSeenDisplay.isEmpty {
-                    Text("↑ \(incident.firstSeenDisplay)")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-                if !incident.lastSeenDisplay.isEmpty {
-                    Text("↓ \(incident.lastSeenDisplay)")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-                HStack(spacing: 4) {
-                    Text("P\(incident.priorityLevel)")
-                        .font(.caption2.weight(.bold))
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(incident.priorityColor.opacity(0.15))
-                        .foregroundColor(incident.priorityColor)
-                        .clipShape(Capsule())
-                    Text(incident.statusKind.capitalized)
-                        .font(.caption2)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(statusColor.opacity(0.15))
-                        .foregroundColor(statusColor)
-                        .clipShape(Capsule())
-                }
+            VStack(alignment: .trailing, spacing: 3) {
+                Text("P\(incident.priorityLevel)")
+                    .font(.caption.weight(.bold))
+                    .foregroundColor(incident.isCleared ? .secondary : incident.priorityColor)
+                Text(incident.isCleared ? "cleared \(incident.age)" : incident.age)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .monospacedDigit()
             }
-        }
-    }
-
-    var statusColor: Color {
-        switch incident.statusKind {
-        case "active": return .red
-        case "routine": return .orange
-        case "clear":  return .gray
-        default:       return .yellow
-        }
-    }
-
-    func priorityColor(_ p: Int) -> Color {
-        switch p {
-        case 1: return Color(red: 0.66, green: 0.33, blue: 0.97) // #a855f7 purple
-        case 2: return Color(red: 0.94, green: 0.27, blue: 0.27) // #ef4444 red
-        case 3: return Color(red: 0.92, green: 0.70, blue: 0.03) // #eab308 yellow
-        case 4: return Color(red: 0.05, green: 0.65, blue: 0.91) // #0ea5e9 sky
-        default: return Color(red: 0.28, green: 0.33, blue: 0.41) // #475569 slate
         }
     }
 }

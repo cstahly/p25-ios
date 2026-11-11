@@ -17,8 +17,23 @@ targets:
     deploymentTarget: "16.0"
     sources:
       - path: P25Monitor
+    # xcodegen rewrites this file from `properties` on every run, so Xcode
+    # emptying it (which is how CarPlay kept vanishing) gets undone by release.sh.
     entitlements:
       path: P25Monitor/P25Monitor.entitlements
+      properties:
+        com.apple.developer.carplay-driving-task: true
+    preBuildScripts:
+      - name: Verify CarPlay entitlement
+        basedOnDependencyAnalysis: false
+        inputFiles:
+          - $(SRCROOT)/P25Monitor/P25Monitor.entitlements
+        script: |
+          if ! /usr/libexec/PlistBuddy -c "Print :com.apple.developer.carplay-driving-task" \
+               "$SRCROOT/P25Monitor/P25Monitor.entitlements" 2>/dev/null | grep -q true; then
+            echo "error: P25Monitor.entitlements lost the CarPlay key (Xcode stripped it). Run xcodegen, or git checkout the file."
+            exit 1
+          fi
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sadbabyrabbit.P25Monitor

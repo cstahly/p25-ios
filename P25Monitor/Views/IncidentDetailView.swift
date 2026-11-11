@@ -9,28 +9,22 @@ struct IncidentDetailView: View {
     @EnvironmentObject var store: P25Store
     @EnvironmentObject var audio: P25AudioPlayer
 
-    var statusColor: Color {
-        switch incident.statusKind {
-        case "active": return .red
-        case "routine": return .orange
-        case "clear":  return .gray
-        default:       return .yellow
-        }
-    }
-
     var body: some View {
         List {
             // Header
             Section {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("\(incident.statusEmoji) \(incident.title)")
-                        .font(.title2.weight(.bold))
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        IncidentDot(incident: incident, size: 16)
+                        Text(incident.title)
+                            .font(.title2.weight(.bold))
+                    }
                     HStack(spacing: 8) {
-                        Text(incident.statusKind.capitalized)
+                        Text(incident.isCleared ? "Cleared" : "P\(incident.priorityLevel) · \(incident.statusKind.capitalized)")
                             .font(.caption.weight(.semibold))
                             .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(statusColor.opacity(0.15))
-                            .foregroundColor(statusColor)
+                            .background((incident.isCleared ? Color.gray : incident.priorityColor).opacity(0.15))
+                            .foregroundColor(incident.isCleared ? .secondary : incident.priorityColor)
                             .clipShape(Capsule())
                         Text(incident.agency)
                             .font(.subheadline)
