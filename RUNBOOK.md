@@ -59,3 +59,22 @@ The push code is in the app but inert — the `aps-environment` entitlement was 
 because it broke CarPlay signing. To enable push later: enable **Push Notifications** on
 the App ID at developer.apple.com, add `aps-environment` = **production** back to the
 entitlements file, then archive. The server-side APNs key is already provisioned.
+
+## Rolling back to the Aug 30 build (202608302141)
+
+That build has the Critical / Now / 8hr / All map pills and **no CarPlay** (it was signed
+without the entitlement). It's preserved three ways:
+
+- **TestFlight**: open TestFlight ▸ P25Monitor ▸ Previous Builds ▸ 202608302141 ▸ Install.
+  Only works until **2026-11-28**, when Apple expires the build.
+- **Source**: git tag `testflight-202608302141` (= commit `1cdbacf`, also pushed to GitHub).
+- **Archive**: `~/src/p25-ios-rollback/P25Monitor-202608302141.xcarchive.zip`
+  (original also in `~/Library/Developer/Xcode/Archives/2026-08-30/`).
+
+After 11-28, rebuild from the tag. TestFlight needs a new build number, so it's the same
+binary under a different number:
+```bash
+git switch -c rollback testflight-202608302141
+./release.sh            # fresh build number
+# archive + upload as above, then: git switch main && git branch -D rollback
+```
