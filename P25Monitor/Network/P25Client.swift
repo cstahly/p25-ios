@@ -53,6 +53,13 @@ class P25Client {
         return try JSONDecoder().decode(StateResponse.self, from: data)
     }
 
+    /// Cleared incidents per hour; counts[0] is the most recent hour.
+    func fetchHistogram(hours: Int = 168) async throws -> [Int] {
+        struct Resp: Decodable { let counts: [Int] }
+        let (data, _) = try await URLSession.shared.data(for: req("/api/incidents/histogram?hours=\(hours)"))
+        return try JSONDecoder().decode(Resp.self, from: data).counts
+    }
+
     func fetchALPR() async throws -> [ALPRCamera] {
         let (data, _) = try await URLSession.shared.data(for: req("/api/alpr"))
         return try JSONDecoder().decode(ALPRResponse.self, from: data).cameras

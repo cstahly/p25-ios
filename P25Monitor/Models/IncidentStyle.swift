@@ -28,7 +28,7 @@ enum IncidentStyle {
     private static let pinCache = NSCache<NSString, UIImage>()
 
     static func pinImage(for inc: Incident, scale: CGFloat = 1) -> UIImage {
-        let key = "\(inc.priorityLevel)|\(inc.isCleared)|\(inc.stale)|\(scale)" as NSString
+        let key = "\(inc.priorityLevel)|\(inc.isCleared)|\(inc.stale)|\(inc.approxLocation)|\(scale)" as NSString
         if let hit = pinCache.object(forKey: key) { return hit }
         let img = renderPin(for: inc, scale: scale)
         pinCache.setObject(img, forKey: key)
@@ -36,6 +36,23 @@ enum IncidentStyle {
     }
 
     private static func renderPin(for inc: Incident, scale: CGFloat) -> UIImage {
+        let core = renderCore(for: inc, scale: scale)
+        guard inc.approxLocation && !inc.isCleared else { return core }
+        // Town-level location: soft halo says "somewhere around here".
+        let side = core.size.width * 2.2
+        let color = uiColor(priority: inc.priorityLevel)
+        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { ctx in
+            let r = CGRect(x: 1, y: 1, width: side - 2, height: side - 2)
+            color.withAlphaComponent(0.18).setFill()
+            ctx.cgContext.fillEllipse(in: r)
+            color.withAlphaComponent(0.55).setStroke()
+            ctx.cgContext.setLineWidth(1)
+            ctx.cgContext.strokeEllipse(in: r)
+            core.draw(at: CGPoint(x: (side - core.size.width) / 2, y: (side - core.size.height) / 2))
+        }
+    }
+
+    private static func renderCore(for inc: Incident, scale: CGFloat) -> UIImage {
         let prio = inc.priorityLevel
         let base: CGFloat = [1: 30, 2: 26, 3: 22, 4: 18, 5: 16][prio] ?? 22
         // Cleared pins shrink so the live ones stand out.

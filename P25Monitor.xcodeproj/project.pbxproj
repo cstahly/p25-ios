@@ -18,6 +18,7 @@
 		60428CE86AF75903017B0087 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B025FF06582D389BC748EE18 /* Assets.xcassets */; };
 		629DE5DB9E983FBD069D2CB0 /* IncidentStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E0B4CDF3EF8B2E0902D3BA3 /* IncidentStyle.swift */; };
 		6F4C42FD13B7348E0982CABD /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA3CDA977EF4AC99455EBE6A /* ContentView.swift */; };
+		74C2ACB1F2FF0A880BFFC145 /* TimelineScrubber.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ED1517DE6CB93AF40DF3925 /* TimelineScrubber.swift */; };
 		889EAEB2DC47FE3AB08A36D7 /* CarPlayCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3352FFC26C2CB1BDD99612B /* CarPlayCoordinator.swift */; };
 		978DF3312ED99840EDF232F4 /* CarPlaySceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06E1FEB8C5BC1FF95FE94E15 /* CarPlaySceneDelegate.swift */; };
 		A5081C8504DC1E337F22D9E0 /* NotificationSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7964FAC202872D4D93C2E322 /* NotificationSettingsView.swift */; };
@@ -34,6 +35,7 @@
 		115A94CFE2727E8DD5E19C29 /* P25Monitor.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = P25Monitor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		180CCD90881D68963D5877F1 /* P25Client.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P25Client.swift; sourceTree = "<group>"; };
 		2176A0A17882E2616BFF22C8 /* LogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogView.swift; sourceTree = "<group>"; };
+		2ED1517DE6CB93AF40DF3925 /* TimelineScrubber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineScrubber.swift; sourceTree = "<group>"; };
 		36C00C29FBD7C15722A8D0E3 /* P25Store.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P25Store.swift; sourceTree = "<group>"; };
 		3E864B5B0CC87B2BA4B661CD /* AudioControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioControlView.swift; sourceTree = "<group>"; };
 		4938CE236A451FD8DB822922 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -68,6 +70,7 @@
 				57021217AD418FD0152965EE /* MapTabView.swift */,
 				7964FAC202872D4D93C2E322 /* NotificationSettingsView.swift */,
 				E51EEB9DEBD55B391A2FDC77 /* SettingsView.swift */,
+				2ED1517DE6CB93AF40DF3925 /* TimelineScrubber.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -280,6 +283,7 @@
 				BECCF0654B1156B6DAE8BDD5 /* PushManager.swift in Sources */,
 				3E1321622B28FC4C97D54951 /* Secrets.swift in Sources */,
 				04409DA4BB90ED1BDA905EA3 /* SettingsView.swift in Sources */,
+				74C2ACB1F2FF0A880BFFC145 /* TimelineScrubber.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

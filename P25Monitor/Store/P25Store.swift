@@ -15,7 +15,7 @@ class P25Store: ObservableObject {
     @Published var incidents: [Incident] = []
     @Published private(set) var historyHours: Int = 1   // resets to 1 every launch
     @Published private(set) var isLoadingHistory = false
-    @Published var heatIncidents: [Incident] = []   // full history, loaded on demand for the heatmap
+    @Published private(set) var histogram: [Int] = []   // cleared per hour, [0] = last hour (time slider)
     @Published var alprCameras: [ALPRCamera] = []
     @Published var recentTX: [TXEvent] = []
     @Published var audioFilter: String = "all"
@@ -63,11 +63,14 @@ class P25Store: ObservableObject {
         }
     }
 
-    /// Full-history incidents for the heatmap (precise points), fetched on demand
-    /// when the heatmap is toggled on — keeps the normal poll light/fast.
-    func loadHeatData() async {
-        if let r = try? await P25Client.shared.fetchState(hours: 720, scope: "all") {
-            heatIncidents = r.incidents
+    private var histogramFetchedAt: Date = .distantPast
+
+    /// Hourly counts behind the time slider. Cheap (~0.5 KB), cached 5 min.
+    func loadHistogram(force: Bool = false) async {
+        guard force || Date().timeIntervalSince(histogramFetchedAt) > 300 else { return }
+        if let c = try? await P25Client.shared.fetchHistogram(hours: 168) {
+            histogram = c
+            histogramFetchedAt = Date()
         }
     }
 
@@ -124,6 +127,7 @@ class P25Store: ObservableObject {
 
     /// Show cleared incidents back this far. 1 = live view (open + last hour).
     func setHistory(hours: Int) {
+        let hours = max(1, min(hours, 168))
         guard hours != historyHours else { return }
         historyHours = hours
         history = []

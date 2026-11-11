@@ -299,19 +299,24 @@ struct MapTabView: View {
     @State private var showHeat = false
     @State private var showALPR = false
     @State private var recenter: CLLocationCoordinate2D?
+    // Defaults key only set by a `-P25ShowTimeline YES` launch argument (screenshots).
+    @State private var showTimeline = UserDefaults.standard.bool(forKey: "P25ShowTimeline")
+    @State private var showUnmapped = false
 
     // Everything the store holds: every open incident regardless of priority, plus
-    // cleared ones inside the chosen history range (small gray pins).
+    // cleared ones inside the chosen time range (small gray pins). Town-level
+    // ("approximate") locations are shown for open calls with a halo; for cleared
+    // calls they'd just pile up on the city centroid, so those stay off.
     var visibleIncidents: [Incident] {
         store.incidents.filter {
-            // Skip the un-mappable approximate pile (everything that geocoded to the
-            // city centroid) - it's the blob that made the map unreadable.
-            $0.coordinate != nil && !$0.approxLocation
+            $0.coordinate != nil && (!$0.approxLocation || !$0.isCleared)
         }
     }
 
-    private var unmappedOpen: Int {
-        store.incidents.filter { !$0.isCleared && ($0.coordinate == nil || $0.approxLocation) }.count
+    /// Open calls the server couldn't place at all ("Unknown").
+    private var unmapped: [Incident] {
+        store.incidents.filter { !$0.isCleared && $0.coordinate == nil }
+            .sorted { $0.priorityLevel < $1.priorityLevel }
     }
 
     static let historyRanges: [(hours: Int, label: String)] = [
@@ -319,18 +324,13 @@ struct MapTabView: View {
     ]
 
     private var rangeLabel: String {
-        switch store.historyHours {
-        case 1:   return "in the last hour"
-        case 72:  return "in 3 days"
-        case 168: return "in the last week"
-        default:  return "in \(store.historyHours)h"
-        }
+        store.historyHours == 1 ? "in the last hour" : "in \(TimelineScrubber.label(store.historyHours))"
     }
 
-    // Heatmap = full-history density of precise points (loaded on demand so the
-    // normal poll stays light).
+    // Heatmap = density of exactly what's on the map (same time range), precise
+    // locations only.
     var heatPoints: [CLLocationCoordinate2D] {
-        store.heatIncidents.filter { !$0.approxLocation }.compactMap { $0.coordinate }
+        visibleIncidents.filter { !$0.approxLocation }.compactMap { $0.coordinate }
     }
 
     private func goToCurrentLocation() {
@@ -370,13 +370,13 @@ struct MapTabView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             } else {
                 VStack(spacing: 8) {
-                    if unmappedOpen > 0 {
+                    if !unmapped.isEmpty {
                         // Open calls with no usable location can't be pinned; don't
                         // let them silently disappear.
-                        Button { store.selectedTab = 1 } label: {
+                        Button { showUnmapped = true } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: "mappin.slash")
-                                Text("\(unmappedOpen) more open \(unmappedOpen == 1 ? "call has" : "calls have") no map location")
+                                Text("\(unmapped.count) open \(unmapped.count == 1 ? "call has" : "calls have") no location")
                                 Image(systemName: "chevron.right").font(.caption.weight(.semibold))
                             }
                             .font(.footnote.weight(.medium))
@@ -412,45 +412,76 @@ struct MapTabView: View {
             selectedIncident = foc
             store.mapFocus = nil
         }
-        .onChange(of: showHeat) { on in
-            if on { Task { await store.loadHeatData() } }   // fetch full history only when needed
-        }
-    }
-
-    /// One line that says what you're looking at; tap it to reach further back.
-    private var historyControl: some View {
-        let open = visibleIncidents.filter { !$0.isCleared }.count
-        let cleared = visibleIncidents.count - open
-        return Menu {
-            Picker("Show cleared calls from", selection: Binding(
-                get: { store.historyHours },
-                set: { store.setHistory(hours: $0) })) {
-                ForEach(Self.historyRanges, id: \.hours) { r in Text(r.label).tag(r.hours) }
-            }
-        } label: {
-            HStack(spacing: 10) {
-                Circle().fill(open > 0 ? Color.red : Color.green).frame(width: 8, height: 8)
-                Text(open == 0 ? "Nothing open" : "\(open) open")
-                    .font(.subheadline.weight(.semibold))
-                Text("· \(cleared) cleared \(rangeLabel)")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-                Spacer(minLength: 4)
-                if store.isLoadingHistory {
-                    ProgressView().controlSize(.small)
-                } else {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .foregroundColor(store.historyHours > 1 ? .accentColor : .secondary)
+        .sheet(isPresented: $showUnmapped) {
+            NavigationStack {
+                List(unmapped) { inc in
+                    NavigationLink(destination: IncidentDetailView(incident: inc)) {
+                        IncidentRow(incident: inc)
+                    }
+                }
+                .listStyle(.plain)
+                .navigationTitle("No location")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") { showUnmapped = false }
+                    }
                 }
             }
-            .foregroundColor(.primary)
-            .padding(.horizontal, 16)
-            .frame(maxWidth: .infinity, minHeight: 50)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
-            .contentShape(RoundedRectangle(cornerRadius: 14))
-            .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
+            .presentationDetents([.medium, .large])
+            .environmentObject(store)
+            .environmentObject(audio)
         }
+        .onChange(of: showTimeline) { on in
+            if on { Task { await store.loadHistogram() } }
+        }
+        .task { if showTimeline { await store.loadHistogram() } }
+    }
+
+    /// One line that says what you're looking at; tap it to open the time slider.
+    private var historyControl: some View {
+        let open = visibleIncidents.filter { !$0.isCleared }.count + unmapped.count
+        // All cleared calls in range (matches the slider), not just the mappable ones.
+        let cleared = store.incidents.filter(\.isCleared).count
+        return VStack(spacing: 10) {
+            Button { withAnimation(.snappy) { showTimeline.toggle() } } label: {
+                HStack(spacing: 10) {
+                    Circle().fill(open > 0 ? Color.red : Color.green).frame(width: 8, height: 8)
+                    Text(open == 0 ? "Nothing open" : "\(open) open")
+                        .font(.subheadline.weight(.semibold))
+                    Text("· \(cleared) cleared \(rangeLabel)")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    if store.isLoadingHistory {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: showTimeline ? "chevron.down" : "clock.arrow.circlepath")
+                            .foregroundColor(store.historyHours > 1 ? .accentColor : .secondary)
+                    }
+                }
+                .foregroundColor(.primary)
+                .frame(maxWidth: .infinity, minHeight: 30)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if showTimeline {
+                TimelineScrubber(counts: store.histogram,
+                                 committedHours: store.historyHours,
+                                 onCommit: { store.setHistory(hours: $0) })
+                if store.historyHours > 1 {
+                    Button("Back to live (last hour)") { store.setHistory(hours: 1) }
+                        .font(.footnote.weight(.medium))
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
     }
 
     private func mapButton(_ system: String, on: Bool, action: @escaping () -> Void) -> some View {
@@ -484,7 +515,8 @@ struct IncidentCallout: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     if !incident.location.isEmpty {
-                        Label(incident.location, systemImage: "location")
+                        Label(incident.approxLocation ? "\(incident.location) (approximate)" : incident.location,
+                              systemImage: incident.approxLocation ? "location.circle" : "location")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
