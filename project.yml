@@ -47,7 +47,7 @@ targets:
       path: P25Monitor/Info.plist
       properties:
         CFBundleShortVersionString: "1.0"   # marketing version — bump for real releases
-        CFBundleVersion: "202611110801"                 # build number — release.sh overwrites with a timestamp
+        CFBundleVersion: "202611110814"                 # build number — release.sh overwrites with a timestamp
         # App uses only standard HTTPS/TLS (exempt encryption) -> declare it so every
         # TestFlight build skips the "Missing Compliance" hold and goes straight to testers.
         ITSAppUsesNonExemptEncryption: false
