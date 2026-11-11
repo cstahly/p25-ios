@@ -9,7 +9,12 @@ extension Notification.Name {
 class P25Store: ObservableObject {
     static let shared = P25Store()
 
+    /// What every screen shows: all open incidents plus cleared ones inside
+    /// `historyHours`. Built from the live poll (last hour, every 30 s) merged with
+    /// a history fetch that only happens when the user asks to see further back.
     @Published var incidents: [Incident] = []
+    @Published private(set) var historyHours: Int = 1   // resets to 1 every launch
+    @Published private(set) var isLoadingHistory = false
     @Published var heatIncidents: [Incident] = []   // full history, loaded on demand for the heatmap
     @Published var alprCameras: [ALPRCamera] = []
     @Published var recentTX: [TXEvent] = []
@@ -23,12 +28,18 @@ class P25Store: ObservableObject {
     private var refreshTimer: Timer?
     private var txPollTimer: Timer?
     private var lastRefresh: Date = .distantPast
+    private var live: [Incident] = []
+    private var history: [Incident] = []
+    private var historyFetchedAt: Date = .distantPast
 
     private init() {}
 
     func start() {
         guard P25Client.shared.isConfigured else { return }
         guard streamTask == nil else { return }
+        // Only set by a `-P25HistoryHours 168` launch argument (screenshots/testing).
+        let h = UserDefaults.standard.integer(forKey: "P25HistoryHours")
+        if h > 1 { historyHours = h }
         Task { await refresh() }
         Task { await backfillTX() }
         Task { await loadALPR() }
@@ -55,7 +66,7 @@ class P25Store: ObservableObject {
     /// Full-history incidents for the heatmap (precise points), fetched on demand
     /// when the heatmap is toggled on — keeps the normal poll light/fast.
     func loadHeatData() async {
-        if let r = try? await P25Client.shared.fetchState(scope: "all") {
+        if let r = try? await P25Client.shared.fetchState(hours: 720, scope: "all") {
             heatIncidents = r.incidents
         }
     }
@@ -98,14 +109,48 @@ class P25Store: ObservableObject {
         guard P25Client.shared.isConfigured else { return }
         lastRefresh = Date()   // stamp at start so failures don't retry on every tx
         do {
-            let state = try await P25Client.shared.fetchState()
-            // Only publish real changes - every publish redraws the map and
-            // rebuilds the CarPlay templates.
-            if state.incidents != incidents { incidents = state.incidents }
+            live = try await P25Client.shared.fetchState(hours: 1).incidents
             if lastError != nil { lastError = nil }
         } catch {
             lastError = error.localizedDescription
         }
+        // History is big (a week is ~2 MB), so it refreshes every 5 min, not every poll.
+        if historyHours > 1 && Date().timeIntervalSince(historyFetchedAt) > 300 {
+            await loadHistory()
+        } else {
+            publishMerged()
+        }
+    }
+
+    /// Show cleared incidents back this far. 1 = live view (open + last hour).
+    func setHistory(hours: Int) {
+        guard hours != historyHours else { return }
+        historyHours = hours
+        history = []
+        historyFetchedAt = .distantPast
+        publishMerged()
+        if hours > 1 { Task { await loadHistory() } }
+    }
+
+    private func loadHistory() async {
+        let hours = historyHours
+        guard hours > 1 else { return }
+        isLoadingHistory = true
+        defer { isLoadingHistory = false }
+        if let rows = try? await P25Client.shared.fetchState(hours: hours).incidents,
+           hours == historyHours {   // ignore a slow fetch for a range the user already left
+            history = rows
+            historyFetchedAt = Date()
+        }
+        publishMerged()
+    }
+
+    private func publishMerged() {
+        let liveIDs = Set(live.map(\.id))
+        let merged = live + history.filter { !liveIDs.contains($0.id) }
+        // Only publish real changes - every publish redraws the map and
+        // rebuilds the CarPlay templates.
+        if merged != incidents { incidents = merged }
     }
 
     private func startStreaming() {

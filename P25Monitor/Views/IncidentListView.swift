@@ -73,11 +73,19 @@ struct IncidentListView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack(spacing: 8) {
                         Menu {
-                            Button("Active") { statusFilter = "active" }
-                            Button("Critical (P1–P2)") { statusFilter = "critical" }
-                            Button("All") { statusFilter = "all" }
+                            Picker("Show", selection: $statusFilter) {
+                                Text("Open").tag("active")
+                                Text("Open, P1-P2 only").tag("critical")
+                                Text("Open + cleared").tag("all")
+                            }
+                            // Same history range as the map.
+                            Picker("Cleared calls from", selection: Binding(
+                                get: { store.historyHours },
+                                set: { store.setHistory(hours: $0); statusFilter = "all" })) {
+                                ForEach(MapTabView.historyRanges, id: \.hours) { r in Text(r.label).tag(r.hours) }
+                            }
                         } label: {
-                            Label(statusFilter == "critical" ? "Critical" : statusFilter.capitalized,
+                            Label(statusFilter == "critical" ? "P1-P2" : statusFilter == "all" ? "Open + cleared" : "Open",
                                   systemImage: "line.3.horizontal.decrease.circle")
                         }
                     }

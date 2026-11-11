@@ -296,34 +296,36 @@ struct MapTabView: View {
     @StateObject private var locator = LocationFetcher()
     @State private var selectedIncident: Incident?
     @State private var detailIncident: Incident?
-    // "active" | "4h" | "24h" | "all". Always opens on Active; the defaults key is
-    // only set by a `-P25MapFilter 24h` launch argument, for screenshots/testing.
-    @State private var mapFilter = UserDefaults.standard.string(forKey: "P25MapFilter") ?? "active"
     @State private var showHeat = false
     @State private var showALPR = false
     @State private var recenter: CLLocationCoordinate2D?
 
-    // "Active" = calls that haven't cleared, whenever they started - the default,
-    // because that's what's actually happening. The time windows add cleared
-    // calls, drawn small and gray so they never compete with live ones.
-    static let filters: [(String, String)] = [("active", "Active"), ("4h", "4h"), ("24h", "24h"), ("all", "All")]
-
+    // Everything the store holds: every open incident regardless of priority, plus
+    // cleared ones inside the chosen history range (small gray pins).
     var visibleIncidents: [Incident] {
-        let cutoffs: [String: Date] = [
-            "4h":  Date().addingTimeInterval(-4 * 3600),
-            "24h": Date().addingTimeInterval(-24 * 3600),
-        ]
-        return store.incidents.filter {
+        store.incidents.filter {
             // Skip the un-mappable approximate pile (everything that geocoded to the
             // city centroid) - it's the blob that made the map unreadable.
-            guard $0.coordinate != nil, !$0.approxLocation else { return false }
-            if mapFilter == "active" { return !$0.isCleared }
-            guard let cutoff = cutoffs[mapFilter] else { return true }  // "all"
-            return !$0.isCleared || ($0.lastSeenDate ?? .distantPast) >= cutoff
+            $0.coordinate != nil && !$0.approxLocation
         }
     }
 
-    private var activeCount: Int { visibleIncidents.filter { !$0.isCleared }.count }
+    private var unmappedOpen: Int {
+        store.incidents.filter { !$0.isCleared && ($0.coordinate == nil || $0.approxLocation) }.count
+    }
+
+    static let historyRanges: [(hours: Int, label: String)] = [
+        (1, "Last hour"), (6, "Last 6 hours"), (24, "Last 24 hours"), (72, "Last 3 days"), (168, "Last week"),
+    ]
+
+    private var rangeLabel: String {
+        switch store.historyHours {
+        case 1:   return "in the last hour"
+        case 72:  return "in 3 days"
+        case 168: return "in the last week"
+        default:  return "in \(store.historyHours)h"
+        }
+    }
 
     // Heatmap = full-history density of precise points (loaded on demand so the
     // normal poll stays light).
@@ -368,33 +370,27 @@ struct MapTabView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             } else {
                 VStack(spacing: 8) {
-                    if mapFilter == "active" && activeCount == 0 {
-                        Text("Nothing active right now")
-                            .font(.footnote.weight(.medium))
-                            .padding(.horizontal, 12).padding(.vertical, 6)
-                            .background(.regularMaterial, in: Capsule())
-                    }
-                    HStack(spacing: 1) {
-                        ForEach(Self.filters, id: \.0) { val, label in
-                            // Padding + background live inside the label so the whole
-                            // segment is tappable, not just the text.
-                            Button { mapFilter = val } label: {
-                                Text(label)
-                                    .font(.subheadline.weight(mapFilter == val ? .semibold : .regular))
-                                    .frame(maxWidth: .infinity, minHeight: 48)
-                                    .background(mapFilter == val ? Color.accentColor : Color(.systemBackground))
-                                    .foregroundColor(mapFilter == val ? .white : .primary)
-                                    .contentShape(Rectangle())
+                    if unmappedOpen > 0 {
+                        // Open calls with no usable location can't be pinned; don't
+                        // let them silently disappear.
+                        Button { store.selectedTab = 1 } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "mappin.slash")
+                                Text("\(unmappedOpen) more open \(unmappedOpen == 1 ? "call has" : "calls have") no map location")
+                                Image(systemName: "chevron.right").font(.caption.weight(.semibold))
                             }
-                            .buttonStyle(.plain)
+                            .font(.footnote.weight(.medium))
+                            .foregroundColor(.primary)
+                            .padding(.horizontal, 12).padding(.vertical, 8)
+                            .background(.regularMaterial, in: Capsule())
+                            .contentShape(Capsule())
                         }
+                        .buttonStyle(.plain)
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .shadow(radius: 6)
+                    historyControl
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 20)
-                .animation(.default, value: mapFilter)
+                .padding(.bottom, 16)
             }
         }
         .sheet(item: $detailIncident) { inc in
@@ -418,6 +414,42 @@ struct MapTabView: View {
         }
         .onChange(of: showHeat) { on in
             if on { Task { await store.loadHeatData() } }   // fetch full history only when needed
+        }
+    }
+
+    /// One line that says what you're looking at; tap it to reach further back.
+    private var historyControl: some View {
+        let open = visibleIncidents.filter { !$0.isCleared }.count
+        let cleared = visibleIncidents.count - open
+        return Menu {
+            Picker("Show cleared calls from", selection: Binding(
+                get: { store.historyHours },
+                set: { store.setHistory(hours: $0) })) {
+                ForEach(Self.historyRanges, id: \.hours) { r in Text(r.label).tag(r.hours) }
+            }
+        } label: {
+            HStack(spacing: 10) {
+                Circle().fill(open > 0 ? Color.red : Color.green).frame(width: 8, height: 8)
+                Text(open == 0 ? "Nothing open" : "\(open) open")
+                    .font(.subheadline.weight(.semibold))
+                Text("· \(cleared) cleared \(rangeLabel)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                if store.isLoadingHistory {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .foregroundColor(store.historyHours > 1 ? .accentColor : .secondary)
+                }
+            }
+            .foregroundColor(.primary)
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, minHeight: 50)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+            .contentShape(RoundedRectangle(cornerRadius: 14))
+            .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
         }
     }
 

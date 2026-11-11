@@ -41,10 +41,15 @@ class P25Client {
 
     // MARK: - API calls
 
-    // Default to the light 24h window for fast load/poll; pass scope="all" only
-    // when something (the heatmap) genuinely needs full history.
-    func fetchState(scope: String = "window") async throws -> StateResponse {
-        let (data, _) = try await URLSession.shared.data(for: req("/api/state?scope=\(scope)"))
+    /// Open incidents (any age) plus incidents cleared in the last `hours`.
+    /// lite=1 skips the server's log-tail feed, which the app never reads.
+    /// scope="all" is full history (heatmap only).
+    func fetchState(hours: Int = 1, scope: String = "window") async throws -> StateResponse {
+        let (data, resp) = try await URLSession.shared.data(for: req("/api/state?scope=\(scope)&hours=\(hours)&lite=1"))
+        if let http = resp as? HTTPURLResponse, http.statusCode >= 300 {
+            throw NSError(domain: "P25", code: http.statusCode,
+                          userInfo: [NSLocalizedDescriptionKey: "Server returned \(http.statusCode)"])
+        }
         return try JSONDecoder().decode(StateResponse.self, from: data)
     }
 

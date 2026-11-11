@@ -24,7 +24,18 @@ enum IncidentStyle {
     static let clearedGray = UIColor(red: 0.61, green: 0.64, blue: 0.69, alpha: 1)
 
     /// Numbered priority circle. `scale` lets CarPlay draw slightly larger pins.
+    /// A week of history is ~3,000 pins drawn from ~20 distinct images - cache them.
+    private static let pinCache = NSCache<NSString, UIImage>()
+
     static func pinImage(for inc: Incident, scale: CGFloat = 1) -> UIImage {
+        let key = "\(inc.priorityLevel)|\(inc.isCleared)|\(inc.stale)|\(scale)" as NSString
+        if let hit = pinCache.object(forKey: key) { return hit }
+        let img = renderPin(for: inc, scale: scale)
+        pinCache.setObject(img, forKey: key)
+        return img
+    }
+
+    private static func renderPin(for inc: Incident, scale: CGFloat) -> UIImage {
         let prio = inc.priorityLevel
         let base: CGFloat = [1: 30, 2: 26, 3: 22, 4: 18, 5: 16][prio] ?? 22
         // Cleared pins shrink so the live ones stand out.
