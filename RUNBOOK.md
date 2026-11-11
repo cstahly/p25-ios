@@ -78,3 +78,18 @@ git switch -c rollback testflight-202608302141
 ./release.sh            # fresh build number
 # archive + upload as above, then: git switch main && git branch -D rollback
 ```
+
+## Headless release (no Xcode GUI)
+
+Works from the CLI with the App Store Connect API key (used for build 202611110801):
+```bash
+./release.sh
+set -a; . ~/.appstoreconnect/fathom.env; set +a
+AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+xcodebuild -project P25Monitor.xcodeproj -scheme P25Monitor -configuration Release \
+  -destination 'generic/platform=iOS' -archivePath build/P25Monitor.xcarchive "${AUTH[@]}" archive
+codesign -d --entitlements - --xml build/P25Monitor.xcarchive/Products/Applications/P25Monitor.app | grep -c carplay   # must be 1
+xcodebuild -exportArchive -archivePath build/P25Monitor.xcarchive -exportOptionsPlist ops/UploadOptions.plist \
+  -exportPath build/upload "${AUTH[@]}"
+```
+The pre-build "Verify CarPlay entitlement" phase fails the build if Xcode emptied the entitlements file.
