@@ -5,8 +5,14 @@ import MediaPlayer
 class P25AudioPlayer: ObservableObject {
     static let shared = P25AudioPlayer()
 
+    /// What the live player is (or was last) playing.
+    enum Source { case p25, marine }
+
     @Published var isPlaying = false
+    @Published private(set) var source: Source = .p25
     @Published var currentTalkgroup: String = "P25 Monitor"
+    /// Why marine playback stopped on its own (the Destin radio changed mode).
+    @Published var marineNote: String?
 
     private var player: AVPlayer?
     private var clipPlayer: AVPlayer?
@@ -33,15 +39,53 @@ class P25AudioPlayer: ObservableObject {
         center.stopCommand.addTarget { [weak self] _ in self?.stop(); return .success }
     }
 
-    func play() {
-        let url = P25Client.shared.audioURL()
+    func play() { play(source) }
+
+    func play(_ src: Source) {
+        player?.pause()
+        source = src
+        let url: URL
+        switch src {
+        case .p25:
+            url = P25Client.shared.audioURL()
+            currentTalkgroup = "P25 Monitor"
+        case .marine:
+            url = DestinRadio.marineStreamURL
+            currentTalkgroup = "Marine Ch16"
+            marineNote = nil
+        }
+        try? AVAudioSession.sharedInstance().setActive(true)
         let headers = ["Authorization": P25Client.shared.authHeader]
         let asset = AVURLAsset(url: url, options: ["AVURLAssetHTTPHeaderFieldsKey": headers])
         let item = AVPlayerItem(asset: asset)
+        // A live stream that drops (Wi-Fi blip, the Destin radio restarting)
+        // ends the item; try again while the user still wants it playing.
+        NotificationCenter.default.addObserver(forName: .AVPlayerItemFailedToPlayToEndTime,
+                                               object: item, queue: .main) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.retry(src, item: item) }
+        }
         player = AVPlayer(playerItem: item)
         player?.play()
         isPlaying = true
         updateNowPlaying()
+    }
+
+    private func retry(_ src: Source, item: AVPlayerItem) {
+        guard isPlaying, source == src, player?.currentItem === item else { return }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            guard isPlaying, source == src, player?.currentItem === item else { return }
+            if src == .marine && !DestinRadio.shared.isOnMarine { destinModeChanged(); return }
+            play(src)
+        }
+    }
+
+    /// Called after every Destin mode poll.
+    func destinModeChanged() {
+        let d = DestinRadio.shared
+        guard isPlaying, source == .marine, let m = d.mode, m != "marine" else { return }
+        stop()
+        marineNote = "Stopped - Destin radio switched to \(d.modeLabel ?? m)"
     }
 
     func stop() {
@@ -94,7 +138,7 @@ class P25AudioPlayer: ObservableObject {
         if let tg = talkgroup { currentTalkgroup = tg }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = [
             MPMediaItemPropertyTitle: currentTalkgroup,
-            MPMediaItemPropertyArtist: "Tippecanoe County P25",
+            MPMediaItemPropertyArtist: source == .marine ? "Destin, FL" : "Tippecanoe County P25",
             MPNowPlayingInfoPropertyIsLiveStream: true,
             MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0,
         ]

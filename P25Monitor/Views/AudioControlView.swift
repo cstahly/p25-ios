@@ -4,29 +4,31 @@ struct AudioControlView: View {
     @EnvironmentObject var store: P25Store
     @EnvironmentObject var audio: P25AudioPlayer
 
+    private var p25Playing: Bool { audio.isPlaying && audio.source == .p25 }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 // Play button
                 VStack(spacing: 16) {
-                    Button(action: audio.toggle) {
+                    Button(action: { p25Playing ? audio.stop() : audio.play(.p25) }) {
                         ZStack {
                             Circle()
-                                .fill(audio.isPlaying ? Color.red.opacity(0.12) : Color.accentColor.opacity(0.12))
+                                .fill(p25Playing ? Color.red.opacity(0.12) : Color.accentColor.opacity(0.12))
                                 .frame(width: 120, height: 120)
-                            Image(systemName: audio.isPlaying ? "stop.fill" : "play.fill")
+                            Image(systemName: p25Playing ? "stop.fill" : "play.fill")
                                 .font(.system(size: 44))
-                                .foregroundColor(audio.isPlaying ? .red : .accentColor)
+                                .foregroundColor(p25Playing ? .red : .accentColor)
                         }
                     }
                     .buttonStyle(.plain)
 
-                    Text(audio.isPlaying ? "LIVE" : "Stopped")
+                    Text(p25Playing ? "LIVE" : "Stopped")
                         .font(.caption.weight(.semibold))
-                        .foregroundColor(audio.isPlaying ? .red : .secondary)
-                        .animation(.default, value: audio.isPlaying)
+                        .foregroundColor(p25Playing ? .red : .secondary)
+                        .animation(.default, value: p25Playing)
 
-                    if audio.isPlaying {
+                    if p25Playing {
                         Text(audio.currentTalkgroup)
                             .font(.subheadline)
                             .foregroundColor(.primary)
@@ -55,6 +57,9 @@ struct AudioControlView: View {
                     .padding(.horizontal)
                 }
                 .padding(.top, 24)
+
+                MarineRow()
+                    .padding(.top, 24)
 
                 Divider().padding(.vertical, 24)
 
@@ -93,11 +98,64 @@ struct AudioControlView: View {
             }
             .navigationTitle("Audio")
             .onReceive(store.$recentTX) { tx in
-                if let latest = tx.first, audio.isPlaying {
+                if let latest = tx.first, p25Playing {
                     audio.updateNowPlaying(talkgroup: latest.talkgroup ?? "P25 Monitor")
                 }
             }
         }
+    }
+}
+
+/// Marine Ch16 from the Destin station. Only playable while that radio is
+/// tuned to marine; otherwise says what it's doing instead.
+struct MarineRow: View {
+    @EnvironmentObject var audio: P25AudioPlayer
+    @ObservedObject private var destin = DestinRadio.shared
+
+    private var playing: Bool { audio.isPlaying && audio.source == .marine }
+    private var available: Bool { destin.isOnMarine || playing }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Destin")
+                .font(.headline)
+            Button {
+                playing ? audio.stop() : audio.play(.marine)
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: playing ? "stop.circle.fill" : "play.circle.fill")
+                        .font(.system(size: 34))
+                        .foregroundColor(!available ? .secondary : playing ? .red : .accentColor)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Marine Ch16")
+                            .font(.body.weight(.semibold))
+                            .foregroundColor(available ? .primary : .secondary)
+                        Text(subtitle)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    if playing {
+                        Text("LIVE")
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(.red)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!available)
+        }
+        .padding(.horizontal)
+        .task { await destin.refresh() }
+    }
+
+    private var subtitle: String {
+        if playing { return "Live from the Destin station" }
+        if destin.isOnMarine { return "Radio is tuned to Ch16" }
+        if let note = audio.marineNote { return note }
+        if let label = destin.modeLabel { return "Radio is on \(label) right now" }
+        return destin.reachable ? "Radio is off Ch16" : "Can't reach Destin"
     }
 }
 

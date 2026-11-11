@@ -25,6 +25,10 @@ struct ContentView: View {
                     .tabItem { Label("Settings", systemImage: "gear") }
                     .tag(4)
         }
-        .onAppear { store.start() }
+        .onAppear {
+            store.start(); DestinRadio.shared.start()
+            // Test-only: `-P25Tab 3` opens on a given tab.
+            if UserDefaults.standard.object(forKey: "P25Tab") != nil { store.selectedTab = UserDefaults.standard.integer(forKey: "P25Tab") }
+        }
     }
 }

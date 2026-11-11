@@ -302,7 +302,7 @@ class CarPlayCoordinator: NSObject {
         }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = [
             MPMediaItemPropertyTitle:             audio.currentTalkgroup,
-            MPMediaItemPropertyArtist:            "Tippecanoe P25",
+            MPMediaItemPropertyArtist:            audio.source == .marine ? "Destin, FL" : "Tippecanoe P25",
             MPNowPlayingInfoPropertyIsLiveStream: true,
             MPNowPlayingInfoPropertyPlaybackRate: 1.0,
         ]

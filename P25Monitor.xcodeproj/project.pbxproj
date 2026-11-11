@@ -15,6 +15,7 @@
 		2BD1687D6915BDB5CA375979 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4938CE236A451FD8DB822922 /* Models.swift */; };
 		3E1321622B28FC4C97D54951 /* Secrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A6234E792E318F956627F0 /* Secrets.swift */; };
 		467E0B768B14228B224EDEBA /* P25AudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D3335F8E344282D2C931930 /* P25AudioPlayer.swift */; };
+		5647CD734609220C440F830A /* DestinRadio.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8F562F05C93CB02E4D9B7D5 /* DestinRadio.swift */; };
 		60428CE86AF75903017B0087 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B025FF06582D389BC748EE18 /* Assets.xcassets */; };
 		629DE5DB9E983FBD069D2CB0 /* IncidentStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E0B4CDF3EF8B2E0902D3BA3 /* IncidentStyle.swift */; };
 		6F4C42FD13B7348E0982CABD /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA3CDA977EF4AC99455EBE6A /* ContentView.swift */; };
@@ -54,6 +55,7 @@
 		D3352FFC26C2CB1BDD99612B /* CarPlayCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlayCoordinator.swift; sourceTree = "<group>"; };
 		D381075EC104CD0355E246A8 /* IncidentDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncidentDetailView.swift; sourceTree = "<group>"; };
 		E51EEB9DEBD55B391A2FDC77 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		E8F562F05C93CB02E4D9B7D5 /* DestinRadio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinRadio.swift; sourceTree = "<group>"; };
 		F0E0BCA464670BC2EA6335F2 /* IncidentListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncidentListView.swift; sourceTree = "<group>"; };
 		FA3CDA977EF4AC99455EBE6A /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -113,6 +115,7 @@
 		2833F8D0B5304AE7AB17B572 /* Audio */ = {
 			isa = PBXGroup;
 			children = (
+				E8F562F05C93CB02E4D9B7D5 /* DestinRadio.swift */,
 				5D3335F8E344282D2C931930 /* P25AudioPlayer.swift */,
 			);
 			path = Audio;
@@ -269,6 +272,7 @@
 				889EAEB2DC47FE3AB08A36D7 /* CarPlayCoordinator.swift in Sources */,
 				978DF3312ED99840EDF232F4 /* CarPlaySceneDelegate.swift in Sources */,
 				6F4C42FD13B7348E0982CABD /* ContentView.swift in Sources */,
+				5647CD734609220C440F830A /* DestinRadio.swift in Sources */,
 				211506A90CD6C9044D6BD9C4 /* IncidentDetailView.swift in Sources */,
 				F363B28ADEDF51C27F21BC20 /* IncidentListView.swift in Sources */,
 				629DE5DB9E983FBD069D2CB0 /* IncidentStyle.swift in Sources */,
